@@ -123,7 +123,13 @@ $("task").addEventListener("submit", async (event) => {
     await call("reset", task);
     for (let i = 0; running && i < state.max_steps * 2; i++) {
       $("status").textContent = "choosing…";
-      await call("predict");
+      try {
+        await call("predict");
+      } catch (error) {
+        // The page changed while the model was deciding; the decision is dropped and the next predict observes again.
+        if (!/Choose again/.test(error.message)) throw error;
+        continue;
+      }
       if (!running || ["done", "blocked"].includes(state.status)) break;
       $("status").textContent = "executing…";
       try {
