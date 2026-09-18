@@ -63,8 +63,7 @@ const settle = (action: Action) => `(action => new Promise(resolve => {
   requestAnimationFrame(ready);
 }))(${JSON.stringify(action)})`;
 
-// A page read while it is still updating gets its action rejected by the guards a moment later, which costs a
-// whole decision. So after jev's settle, hold until the DOM has been quiet for a moment, within a hard cap.
+// Once awaited data has arrived, the page still has to render it: hold until the DOM has been quiet for a moment.
 const QUIET_MS = Number(process.env.JEV_QUIET_MS ?? 40);
 const QUIET_CAP_MS = Number(process.env.JEV_QUIET_CAP_MS ?? 250);
 const quiet = `new Promise(resolve => {
@@ -169,7 +168,7 @@ export class Browser {
       // jev waits for the page to settle, then reads it: two round trips. Chained in the page, it is one.
       const action = this.afterInput;
       this.afterInput = null;
-      info = await this.evaluate(`(${settle(action)}).then(() => ${quiet}).then(() => ${READ_STATE})`, true).catch(() => undefined);
+      info = await this.evaluate(`(${settle(action)}).then(() => ${READ_STATE})`, true).catch(() => undefined);
     }
     for (let attempt = 0; info == null && attempt < 10; attempt++) {
       if (attempt) await new Promise((r) => setTimeout(r, 20));
