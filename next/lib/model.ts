@@ -234,9 +234,27 @@ async function fieldTextOnce(context: unknown, signal?: AbortSignal) {
   return { text: value as string, helper: { model, latency_ms: Math.round(performance.now() - started), usage: result.usage ?? {} } };
 }
 
+// The text model usually answers in ~0.5 s and now and then takes 5 s. A second identical request after this long
+// is cheap, and the first valid answer wins.
+const TEXT_HEDGE_MS = Number(process.env.JEV_TEXT_HEDGE_MS ?? 1200);
+
 export async function fieldText(context: unknown, signal?: AbortSignal) {
-  // One malformed reply from the text model should not end the run.
-  const answer = (await fieldTextOnce(context, signal)) ?? (await fieldTextOnce(context, signal));
+  const losers = new AbortController();
+  const each = signal ? AbortSignal.any([signal, losers.signal]) : losers.signal;
+  const attempt = () => fieldTextOnce(context, each).catch(() => null);
+  let hedge: NodeJS.Timeout | undefined;
+  const second = new Promise<Awaited<ReturnType<typeof fieldTextOnce>>>((resolve) => {
+    hedge = setTimeout(() => resolve(attempt()), TEXT_HEDGE_MS);
+  });
+  const first = attempt();
+  // The first valid answer wins. One malformed reply should not end the run, so an invalid first answer waits for the other.
+  let answer = await Promise.race([first, second]);
+  if (!answer) {
+    clearTimeout(hedge);
+    answer = (await first) ?? (await attempt());
+  }
+  clearTimeout(hedge);
+  losers.abort();
   if (!answer) throw new Error("Text helper returned no valid field value; nothing typed.");
   return answer;
 }
