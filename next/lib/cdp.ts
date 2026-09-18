@@ -9,12 +9,15 @@ type Pending = { resolve: (result: any) => void; reject: (error: Error) => void;
 export class Connection {
   private next = 1;
   private pending = new Map<number, Pending>();
+  /** CDP events (messages without an id), for whoever cares. */
+  onEvent?: (method: string, params: any, sessionId?: string) => void;
 
   private constructor(private socket: WebSocket) {
     socket.on("message", (data) => {
       const reply = JSON.parse(data.toString());
+      if (reply.id === undefined) return void this.onEvent?.(reply.method, reply.params, reply.sessionId);
       const waiting = this.pending.get(reply.id);
-      if (!waiting) return; // events are not used
+      if (!waiting) return;
       this.pending.delete(reply.id);
       clearTimeout(waiting.timer);
       if (reply.error) waiting.reject(new Error(reply.error.message ?? "CDP error"));

@@ -107,8 +107,13 @@ function fingerprint(state: Record<string, unknown>) {
   return createHash("sha256").update(JSON.stringify(content)).digest("hex");
 }
 
+// Data the page is still fetching is about to change it. Requests older than this are long-lived streams, not data.
+const NETWORK_CAP_MS = Number(process.env.JEV_NETWORK_CAP_MS ?? 600);
+const LONG_LIVED_MS = 2000;
+
 export class Browser {
   private afterInput: Action | null = null;
+  private inflight = new Map<string, number>(); // XHR/fetch request id -> when it started
 
   private constructor(
     private cdp: Connection,
@@ -121,7 +126,14 @@ export class Browser {
     const pages = (await cdp.send("Target.getTargets")).targetInfos.filter((t: any) => t.type === "page");
     const targetId = pages[0]?.targetId ?? (await cdp.send("Target.createTarget", { url: "about:blank" })).targetId;
     const { sessionId } = await cdp.send("Target.attachToTarget", { targetId, flatten: true });
-    return new Browser(cdp, sessionId);
+    const browser = new Browser(cdp, sessionId);
+    cdp.onEvent = (method, params, from) => {
+      if (from !== sessionId) return;
+      if (method === "Network.requestWillBeSent" && (params.type === "XHR" || params.type === "Fetch")) browser.inflight.set(params.requestId, Date.now());
+      else if (method === "Network.loadingFinished" || method === "Network.loadingFailed") browser.inflight.delete(params.requestId);
+    };
+    browser.call("Network.enable").catch(() => {});
+    return browser;
   }
 
   call(method: string, params: object = {}) {
@@ -163,6 +175,9 @@ export class Browser {
       if (attempt) await new Promise((r) => setTimeout(r, 20));
       info = await this.evaluate(READ_STATE).catch(() => undefined);
     }
+    // A page read while data is still arriving gets its action rejected a moment later, which costs a whole
+    // decision. When XHR/fetch requests are in flight, wait for them (within a cap) and read the page again.
+    if (info != null && (await this.networkIdle())) info = (await this.evaluate(`(${quiet}).then(() => ${READ_STATE})`, true).catch(() => undefined)) ?? info;
     if (info == null) throw new StalePage("Page did not settle");
     if (info.url.startsWith("data:")) info.url = info.url.split(",")[0];
     info.fingerprint = fingerprint(info);
@@ -175,6 +190,15 @@ export class Browser {
     return { page: info as Page, shot };
   }
 
+  /** Waits for in-flight data requests. False when there was nothing to wait for. */
+  private async networkIdle() {
+    const pending = () => [...this.inflight.values()].some((started) => Date.now() - started < LONG_LIVED_MS);
+    if (!NETWORK_CAP_MS || !pending()) return false;
+    const deadline = Date.now() + NETWORK_CAP_MS;
+    while (pending() && Date.now() < deadline) await new Promise((r) => setTimeout(r, 10));
+    return true;
+  }
+
   /** Is the page still the one that was observed? For a click or select, only what that target depends on. */
   async fresh(page: Page, action?: Action) {
     if (action && (action.kind === "click" || action.kind === "select")) {
@@ -183,6 +207,24 @@ export class Browser {
       return same(current, [page.page_key, page.guards[String(action.node)]]);
     }
     return same(await this.evaluate(MARKER), page.marker);
+  }
+
+  /** Debugging aid: what differs between an observed page and the page now. */
+  async diff(page: Page) {
+    const now = (await this.evaluate(READ_STATE)) as Page | undefined;
+    if (!now) return "document gone";
+    const labels = (p: Page) => new Set(p.actions.map((a) => `${a.kind}:${a.label}`));
+    const before = labels(page), after = labels(now);
+    const words = (t: string) => new Set(t.split(/\s+/));
+    const wb = words(page.text), wa = words(now.text);
+    return {
+      url_changed: page.url !== now.url,
+      actions: `${page.actions.length} -> ${now.actions.length}`,
+      gone: [...before].filter((l) => !after.has(l)).slice(0, 4),
+      added: [...after].filter((l) => !before.has(l)).slice(0, 4),
+      text_added: [...wa].filter((w) => !wb.has(w)).slice(0, 8).join(" "),
+      text_gone: [...wb].filter((w) => !wa.has(w)).slice(0, 8).join(" "),
+    };
   }
 
   /** Never retried. Resolves only once Chrome has accepted every input event. */

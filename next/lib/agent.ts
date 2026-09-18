@@ -81,6 +81,7 @@ export async function* run(url: string, goal: string, signal: AbortSignal): Asyn
       page.screenshot = await observed.shot; // requested with the snapshot, long arrived
       if (!fresh) {
         count("stale_decisions");
+        if (process.env.JEV_DEBUG) console.error(`stale decision after ${history.length} actions: chose ${decision.operation} ${decision.choice}`, await browser.diff(page));
         await reobserve(); // the decision was made on a page that no longer exists
         continue;
       }
@@ -115,6 +116,7 @@ export async function* run(url: string, goal: string, signal: AbortSignal): Asyn
       } catch (error) {
         if (!(error instanceof StalePage)) throw error;
         count("stale_acts");
+        if (process.env.JEV_DEBUG) console.error(`stale act after ${history.length} actions: ${action.kind} [${action.label}]`, await browser.diff(page));
         await reobserve(); // nothing was executed
         continue;
       }
