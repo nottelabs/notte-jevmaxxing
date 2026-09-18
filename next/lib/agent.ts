@@ -22,13 +22,26 @@ export type RunState = {
   history: HistoryEntry[];
   elapsed_ms: number;
   max_steps: number;
+  /** Where the time went, in ms. Setup buckets are wall clock from the request; the rest are sums over the run. */
+  timing: Record<string, number>;
 };
 
 export async function* run(url: string, goal: string, signal: AbortSignal): AsyncGenerator<RunEvent> {
+  const timing: Record<string, number> = {};
+  const t0 = performance.now();
+  const timed = async <T>(bucket: string, work: Promise<T>): Promise<T> => {
+    const from = performance.now();
+    try {
+      return await work;
+    } finally {
+      timing[bucket] = Math.round((timing[bucket] ?? 0) + performance.now() - from);
+    }
+  };
+  const count = (bucket: string) => (timing[bucket] = (timing[bucket] ?? 0) + 1);
   const client = new NotteClient({ apiKey: process.env.NOTTE_API_KEY });
   // No proxies: pages load about 4x faster. Sites that block datacenter IPs need proxies: true.
   const session = client.Session({ proxies: false, idle_timeout_minutes: 5, max_duration_minutes: 30, ...VIEWPORT } as any);
-  await session.start();
+  await timed("setup_session_start", session.start());
   let browser: Browser | undefined;
   try {
     // The viewer can be embedded from here on, while the agent connects and the page loads.
@@ -37,9 +50,10 @@ export async function* run(url: string, goal: string, signal: AbortSignal): Asyn
     const started = (session as any).response ?? (await session.status());
     yield { type: "session", viewer_url: started.viewer_url ?? null, session_id: started.session_id };
 
-    browser = await connecting;
-    await browser.open(url);
-    let observed = await browser.observe();
+    browser = await timed("setup_connect", connecting);
+    await timed("setup_page_load", browser.open(url));
+    let observed = await timed("setup_first_snapshot", browser.observe());
+    timing.setup_total = Math.round(performance.now() - t0);
     let page = observed.page;
     const history: HistoryEntry[] = [];
     let decisions = 0;
@@ -48,10 +62,10 @@ export async function* run(url: string, goal: string, signal: AbortSignal): Asyn
     const elapsed = () => Math.round(performance.now() - startedAt);
     const state = (decision: Decision | null = null): RunEvent => ({
       type: "state",
-      state: { status, page, elements: actionSpace(page.actions).elements, decision, decisions, history, elapsed_ms: startedAt ? elapsed() : 0, max_steps: MAX_STEPS },
+      state: { status, page, elements: actionSpace(page.actions).elements, decision, decisions, history, elapsed_ms: startedAt ? elapsed() : 0, max_steps: MAX_STEPS, timing },
     });
     const reobserve = async () => {
-      observed = await browser!.observe();
+      observed = await timed("observe", browser!.observe());
       page = observed.page;
       status = "ready";
     };
@@ -62,10 +76,11 @@ export async function* run(url: string, goal: string, signal: AbortSignal): Asyn
       if (decisions >= MAX_STEPS * 2) throw new Error("Reached the model-call budget");
 
       // The page was read a moment ago: check it is still that page while the model decides, not before.
-      const [fresh, decision] = await Promise.all([browser.fresh(page), choose(page, goal, history, signal)]);
+      const [fresh, decision] = await Promise.all([timed("fresh_during_model", browser.fresh(page)), timed("model_typesafe", choose(page, goal, history, signal))]);
       decisions++;
       page.screenshot = await observed.shot; // requested with the snapshot, long arrived
       if (!fresh) {
+        count("stale_decisions");
         await reobserve(); // the decision was made on a page that no longer exists
         continue;
       }
@@ -76,7 +91,8 @@ export async function* run(url: string, goal: string, signal: AbortSignal): Asyn
       // The decision is consumed once, before any mutation or model call. A retry cannot double-click.
       const selected = decision.choice;
       if (selected === "DONE" || selected === "BLOCKED") {
-        if (!(await browser.fresh(page))) {
+        if (!(await timed("fresh_before_done", browser.fresh(page)))) {
+          count("stale_done");
           await reobserve();
           continue;
         }
@@ -91,13 +107,14 @@ export async function* run(url: string, goal: string, signal: AbortSignal): Asyn
       try {
         if (action.kind === "fill") {
           // Same idea: the text is written while the page is checked. act() checks once more before any input.
-          const [stillFresh, written] = await Promise.all([browser.fresh(page), fieldText(fieldContext(goal, action, page, history), signal)]);
+          const [stillFresh, written] = await Promise.all([browser.fresh(page), timed("model_text", fieldText(fieldContext(goal, action, page, history), signal))]);
           if (!stillFresh) throw new StalePage("Page changed before text generation. Choose again.");
           ({ text, helper } = written);
         }
-        await browser.act(action, page, text);
+        await timed("act", browser.act(action, page, text));
       } catch (error) {
         if (!(error instanceof StalePage)) throw error;
+        count("stale_acts");
         await reobserve(); // nothing was executed
         continue;
       }
