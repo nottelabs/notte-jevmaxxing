@@ -39,7 +39,12 @@ main { max-width: 1240px; margin: 0 auto; padding: 40px 24px; display: flex; fle
 
 /* height:0 + min-height:100% lets the browser column set the row height; the list scrolls inside it. */
 aside { padding: 18px; display: flex; flex-direction: column; gap: 12px; height: 0; min-height: 100%; }
-#start { appearance: none; background: transparent; border: 0; padding: 0; cursor: pointer; align-self: flex-start;
+.controls { display: flex; align-items: baseline; gap: 18px; }
+#clear { appearance: none; background: transparent; border: 0; padding: 0; cursor: pointer; font-family: var(--mono); font-weight: 300; font-size: 13px; color: var(--dim); text-decoration: underline; text-underline-offset: 4px; }
+#clear:hover { color: var(--paper); }
+#timer { margin-left: auto; font-family: var(--mono); font-weight: 500; font-size: 34px; line-height: 1; font-variant-numeric: tabular-nums; color: var(--paper); }
+#timer.done { color: var(--dim); }
+#start { appearance: none; background: transparent; border: 0; padding: 0; cursor: pointer;
   font-family: var(--display); font-weight: 500; font-size: 34px; line-height: 1; letter-spacing: -0.02em; color: var(--pink);
   text-decoration: underline; text-decoration-thickness: 3px; text-underline-offset: 6px; text-decoration-color: transparent; }
 #start:hover { text-decoration-color: var(--pink-deep); color: var(--pink-deep); }

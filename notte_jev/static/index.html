@@ -27,7 +27,11 @@
           </div>
         </div>
         <aside>
-          <button id="start" form="task" type="submit">Start ↗</button>
+          <div class="controls">
+            <button id="start" form="task" type="submit">Start ↗</button>
+            <button id="clear" type="button" hidden>clear</button>
+            <span id="timer" hidden>0.0s</span>
+          </div>
           <p id="status">ready</p>
           <div class="label">action space <span id="op"></span></div>
           <div id="actions"></div>
