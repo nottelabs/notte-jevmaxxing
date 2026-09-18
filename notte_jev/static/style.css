@@ -37,14 +37,15 @@ main { max-width: 1240px; margin: 0 auto; padding: 40px 24px; display: flex; fle
 .t.on { border: 2px solid var(--pink); background: rgba(243, 134, 161, 0.2); }
 .t.on span { background: var(--pink); }
 
-aside { padding: 18px; display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+/* height:0 + min-height:100% lets the browser column set the row height; the list scrolls inside it. */
+aside { padding: 18px; display: flex; flex-direction: column; gap: 12px; height: 0; min-height: 100%; }
 #start { appearance: none; background: transparent; border: 0; padding: 0; cursor: pointer; align-self: flex-start;
   font-family: var(--display); font-weight: 500; font-size: 34px; line-height: 1; letter-spacing: -0.02em; color: var(--pink);
   text-decoration: underline; text-decoration-thickness: 3px; text-underline-offset: 6px; text-decoration-color: transparent; }
 #start:hover { text-decoration-color: var(--pink-deep); color: var(--pink-deep); }
 #status { margin: 0; font-family: var(--mono); font-weight: 300; font-size: 12px; color: var(--dim); }
 aside .label { color: var(--dim); } #op { color: var(--pink); margin-left: 6px; }
-#actions { flex: 1; min-height: 0; max-height: 560px; overflow: auto; font-family: var(--mono); font-size: 12px; font-weight: 300; }
+#actions { flex: 1; min-height: 0; overflow: auto; font-family: var(--mono); font-size: 12px; font-weight: 300; }
 .a { display: grid; grid-template-columns: 28px 1fr 42px; gap: 8px; padding: 6px 0; border-top: 1px dashed var(--dash); }
 .a .i { color: var(--dim); } .a .p { text-align: right; font-variant-numeric: tabular-nums; }
 .a .l { min-width: 0; overflow-wrap: anywhere; }
@@ -61,4 +62,5 @@ aside .label { color: var(--dim); } #op { color: var(--pink); margin-left: 6px; 
 
 @media (max-width: 900px) {
   .window { grid-template-columns: 1fr; } .browser { border-right: 0; }
+  aside { height: auto; min-height: 0; } #actions { max-height: 60vh; }
 }

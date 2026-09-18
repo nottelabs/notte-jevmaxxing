@@ -74,6 +74,7 @@ def inspector():
     Reuses jev's demo server and agent loop. Every Start gets a fresh Notte
     session, so an idle or expired browser connection never breaks a new task.
     """
+    import threading
     from pathlib import Path
 
     from browser_harness.admin import restart_daemon
@@ -81,22 +82,24 @@ def inspector():
 
     current = {"session": None, "name": None}
 
-    def stop_current():
-        try:
-            demo.close_browser()  # closes the tab; fails harmlessly if the connection already died
-        except Exception:
-            demo.AGENT = None
-        if current["name"]:
-            try:
-                restart_daemon(current["name"])  # "restart" only stops
-            except Exception:
-                pass
-        if current["session"]:
-            try:
-                current["session"].stop()
-            except Exception:
-                pass
+    def stop_current(wait=False):
+        # Stopping a session takes ~15s; do it in the background so the next Start isn't blocked.
+        demo.AGENT = None  # the tab dies with its session
+        old = (current["session"], current["name"])
         current.update(session=None, name=None)
+
+        def cleanup():
+            session, name = old
+            for step in (lambda: name and restart_daemon(name), lambda: session and session.stop()):
+                try:
+                    step()
+                except Exception:
+                    pass
+
+        worker = threading.Thread(target=cleanup, daemon=not wait)
+        worker.start()
+        if wait:
+            worker.join()
 
     def command(name, body):
         if name != "reset":
@@ -107,7 +110,8 @@ def inspector():
         if not 0 < len(goal) <= 2000:
             raise ValueError("Enter a task of 1–2,000 characters")
         stop_current()
-        session = NotteClient().Session(idle_timeout_minutes=5, max_duration_minutes=30)
+        # No proxies: pages load about 2x faster. Pass proxies=True for sites that block datacenter IPs.
+        session = NotteClient().Session(proxies=False, idle_timeout_minutes=5, max_duration_minutes=30)
         session.start()
         current.update(session=session, name=f"notte-{session.session_id[:8]}")
         _point_harness_at(current["name"], session.cdp_url())
@@ -120,4 +124,4 @@ def inspector():
     try:
         demo.main()
     finally:
-        stop_current()
+        stop_current(wait=True)
