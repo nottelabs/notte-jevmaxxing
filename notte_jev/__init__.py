@@ -1,14 +1,15 @@
 """Plug a Notte browser session into jev-ultrafast.
 
-jev-ultrafast drives Chrome through Browser Harness, which accepts any CDP
-websocket via BU_CDP_WS. A Notte session exposes exactly that, so all this
-does is: start a session, point the harness at its CDP URL, run the agent.
+jev-ultrafast drives Chrome over CDP. A Notte session exposes a CDP websocket,
+so all this does is: start a session, give jev a browser on that websocket
+(see browser.py), run the agent.
 """
 
-import os
 from contextlib import contextmanager
 
 from notte_sdk import NotteClient
+
+from .browser import VIEWPORT, use_session
 
 
 @contextmanager
@@ -18,38 +19,16 @@ def notte_agent(url, goal, **session_kwargs):
     session_kwargs go straight to NotteClient().Session(...), e.g.
     proxies=True, solve_captchas=True, open_viewer=True.
     """
-    session = NotteClient().Session(**session_kwargs)
+    session = NotteClient().Session(**{**VIEWPORT, **session_kwargs})
     session.start()
-    name = f"notte-{session.session_id[:8]}"  # one harness daemon per session
     try:
-        _point_harness_at(name, session.cdp_url())
+        use_session(session)
         from jev_ultrafast import Agent
 
         with Agent(url, goal) as agent:
             yield agent
     finally:
-        from browser_harness.admin import restart_daemon  # "restart" only stops
-
-        restart_daemon(name)
         session.stop()
-
-
-def _point_harness_at(name, cdp_ws):
-    # The daemon subprocess reads these from os.environ when spawned.
-    os.environ["BU_NAME"] = name
-    os.environ["BU_CDP_WS"] = cdp_ws
-    # The client side caches BU_NAME at import time; override in case
-    # browser_harness (or jev_ultrafast) was imported before we ran.
-    from browser_harness import _ipc, admin, helpers
-
-    helpers.NAME = admin.NAME = name
-    helpers.SOCK = _ipc.sock_addr(name)
-    # A remote browser answers slower than local Chrome; the harness default of 5s pauses runs mid-click.
-    import functools
-
-    import jev_ultrafast.browser as jev_browser
-
-    jev_browser.cdp = functools.partial(helpers.cdp, _response_timeout=30)
 
 
 def main():
@@ -77,24 +56,20 @@ def inspector():
     import threading
     from pathlib import Path
 
-    from browser_harness.admin import restart_daemon
     from jev_ultrafast import Agent, demo
 
-    current = {"session": None, "name": None}
+    current = {"session": None}
 
     def stop_current(wait=False):
         # Stopping a session takes ~15s; do it in the background so the next Start isn't blocked.
         demo.AGENT = None  # the tab dies with its session
-        old = (current["session"], current["name"])
-        current.update(session=None, name=None)
+        session, current["session"] = current["session"], None
 
         def cleanup():
-            session, name = old
-            for step in (lambda: name and restart_daemon(name), lambda: session and session.stop()):
-                try:
-                    step()
-                except Exception:
-                    pass
+            try:
+                session and session.stop()
+            except Exception:
+                pass
 
         worker = threading.Thread(target=cleanup, daemon=not wait)
         worker.start()
@@ -111,10 +86,10 @@ def inspector():
             raise ValueError("Enter a task of 1–2,000 characters")
         stop_current()
         # No proxies: pages load about 2x faster. Pass proxies=True for sites that block datacenter IPs.
-        session = NotteClient().Session(proxies=False, idle_timeout_minutes=5, max_duration_minutes=30)
+        session = NotteClient().Session(proxies=False, idle_timeout_minutes=5, max_duration_minutes=30, **VIEWPORT)
         session.start()
-        current.update(session=session, name=f"notte-{session.session_id[:8]}")
-        _point_harness_at(current["name"], session.cdp_url())
+        current["session"] = session
+        use_session(session)
         demo.AGENT = Agent(url, goal, screenshots=True)
         return demo.response_state()
 
