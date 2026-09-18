@@ -1,235 +1,74 @@
+// Task → Start runs choose/execute in a loop on the Notte browser; each step shows the ranked action space.
 const $ = (id) => document.getElementById(id);
 const token = document.querySelector('meta[name="demo-token"]').content;
-let state = null,
-  busy = false,
-  automatic = false;
-const escape = (value) =>
-  String(value ?? "").replace(
-    /[&<>"']/g,
-    (c) =>
-      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
-        c
-      ],
-  );
-const percent = (value) => `${(value * 100).toFixed(value < 0.01 ? 1 : 0)}%`;
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const pct = (p) => `${(p * 100).toFixed(p < 0.01 ? 1 : 0)}%`;
+let state = null, running = false;
+// jev only clicks and types, so it needs a start page: the first URL in the prompt, else Google.
+const startUrl = (task) => task.match(/https?:\/\/[^\s"'<>]+/)?.[0].replace(/[.,;:!?)]+$/, "") || "https://www.google.com";
+
 async function call(name, body = {}) {
-  const response = await fetch(`/api/${name}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Demo-Token": token },
-    body: JSON.stringify(body),
-  });
-  const data = await response.json();
-  if (!response.ok) throw Error(data.error || "Request failed");
+  const r = await fetch(`/api/${name}`, { method: "POST", headers: { "Content-Type": "application/json", "X-Demo-Token": token }, body: JSON.stringify(body) });
+  const data = await r.json();
+  if (!r.ok) throw Error(data.error || "Request failed");
   state = data;
   render();
-  return data;
 }
-function controls() {
-  const live = state?.page && !["done", "blocked"].includes(state.status);
-  $("start").disabled = busy;
-  $("scenario").disabled = busy;
-  $("goal").disabled = busy;
-  $("choose").disabled = busy || !live;
-  $("execute").disabled = busy || !state?.decision || !live;
-  $("auto").disabled = busy || !live;
-  $("auto").hidden = automatic;
-  $("stop").hidden = !automatic;
-  $("download").disabled = !state?.history?.length;
-}
-async function perform(fn, label) {
-  if (busy) return;
-  busy = true;
-  $("error").hidden = true;
-  controls();
-  $("status").textContent = label;
-  try {
-    await fn();
-  } catch (error) {
-    automatic = false;
-    try {
-      state = await fetch("/api/state").then((r) => r.json());
-      render();
-    } catch {
-      /* Preserve the original failure if the server disconnected. */
-    }
-    $("error").textContent = error.message;
-    $("error").hidden = false;
-    $("status").textContent = "Paused · needs attention";
-  } finally {
-    busy = false;
-    controls();
-  }
-}
+
 function render() {
-  if (!state) return;
-  $("helper").textContent = `text helper · ${state.text_model}`;
-  $("plan").innerHTML = (state.plan || [])
-    .map(
-      (goal, i) =>
-        `<div class="plan-step ${i === state.plan_index ? "current" : ""}"><span>${i < state.plan_index ? "✓" : i + 1}</span>${escape(goal)}</div>`,
-    )
-    .join("");
-  const page = state.page,
-    d =
-      state.decision ||
-      (state.status === "done" ? state.decisions?.at(-1) : null);
-  const labels = {
-    idle: "Ready to explore",
-    ready: "Page observed · ready for a decision",
-    predicted: "Choice ready · inspect or execute",
-    done: "Jev reports complete · inspect the page",
-    blocked: "Stopped · no supported next action",
-  };
-  $("status").textContent = labels[state.status] || state.status;
-  if (!page) {
-    controls();
-    return;
-  }
+  const page = state?.page;
+  if (!page) return;
+  const d = state.decision || (state.status === "done" ? state.decisions?.at(-1) : null);
+  const picked = d?.target?.split(":")[0];
   $("empty").hidden = true;
-  $("screenshot").hidden = false;
-  $("screenshot").src = `data:image/jpeg;base64,${page.screenshot}`;
-  $("url").textContent = page.url;
-  $("page-title").textContent = page.title;
-  $("action-count").textContent = String(state.elements.length);
-  const chosen = page.actions.find((a) => a.id === d?.choice);
-  $("choice-title").textContent = d
-    ? chosen?.label || d.choice
-    : "Choose an action";
-  $("latency").textContent = d ? `${d.latency_ms} ms` : "—";
-  $("confidence").textContent = d?.target_confidence != null ? percent(d.target_confidence) : "—";
-  $("completion").textContent = d ? d.operation : "—";
-  $("ranking-note").textContent = d ? "Ranked by Jev" : "Unranked";
-  const op = Object.entries(d?.operation_probabilities || {}).sort((a,b)=>b[1]-a[1]);
-  $("operation-choices").innerHTML = op.map(([name,p]) =>
-    `<span class="operation-choice ${name === d.operation ? 'best' : ''}">${escape(name)} <b>${percent(p)}</b></span>`).join('');
-  const probability = e => d?.target_probabilities[e.index] ??
-    Math.max(-1, ...(e.options || []).map(o=>d?.target_probabilities[o.index] ?? -1));
-  const selectedIndex = d?.target?.split(':')[0];
-  const elements = [...state.elements];
-  if (d) elements.sort((a,b)=>probability(b)-probability(a));
-  $("choices").innerHTML = elements.map(e => {
-    const p = probability(e);
-    return `<div class="choice ${selectedIndex === e.index ? 'best' : ''}" data-action="${escape(e.index)}"><span class="choice-id">[${escape(e.index)}]</span><div class="choice-label">${escape(e.label)}<small>${escape(e.role)} · ${escape(e.operations.join(' / '))}${e.value ? ' · '+escape(e.value) : ''}${e.checked !== undefined ? ' · checked '+escape(e.checked) : ''}</small>${p >= 0 ? `<div class="bar" style="--probability:${p*100}%"></div>` : ''}</div><span class="probability">${p >= 0 ? percent(p) : '—'}</span></div>`;
-  }).join('');
-  const targets = new Map();
-  for (const a of page.actions) if (a.rect && !targets.has(a.node)) targets.set(a.node, a);
-  $("targets").innerHTML = [...targets.values()].map((a,i) => {
-    const index=String(i+1);
-    return `<div class="target ${index === selectedIndex ? 'selected' : ''}" data-action="${index}" style="left:${100*a.rect.x/page.w}%;top:${100*a.rect.y/page.h}%;width:${100*a.rect.w/page.w}%;height:${100*a.rect.h/page.h}%"><span>${index}</span></div>`;
-  }).join('');
-  $("targets").hidden = !$("overlays").checked;
-  $("history").innerHTML = state.history.length
-    ? state.history
-        .map(
-          (h) =>
-            `<div class="trace-row"><span class="number">${String(h.step).padStart(2, "0")}</span><div>${escape(h.action)}${h.text ? ` <b>“${escape(h.text)}”</b><small>${escape(h.text_helper)}</small>` : ""}</div><span class="time">${h.latency_ms} ms · ${percent(h.probability)}</span><span class="effect">${h.page_changed ? "Page changed" : "No change observed"}</span></div>`,
-        )
-        .join("")
-    : '<p class="muted">Each executed action leaves an observed result.</p>';
-  $("step-count").textContent = `${state.history.length} actions · ${(state.elapsed_ms / 1000).toFixed(2)} s`;
-  $("model-state").textContent = JSON.stringify(
-    d?.request || {
-      goal: state.goal,
-      url: page.url,
-      text: page.text,
-      actions: page.actions.map(({ rect, node, ...rest }) => rest),
-    },
-    null,
-    2,
-  );
-  controls();
+  $("shot").hidden = false;
+  $("shot").src = `data:image/jpeg;base64,${page.screenshot}`;
+  $("page-url").textContent = page.url;
+  $("op").textContent = d ? `→ ${d.operation} ${pct(d.operation_probabilities?.[d.operation] ?? 0)}` : `${state.elements.length} elements`;
+
+  const seen = new Map();
+  for (const a of page.actions) if (a.rect && !seen.has(a.node)) seen.set(a.node, a);
+  $("targets").innerHTML = [...seen.values()].map((a, i) =>
+    `<div class="t ${String(i + 1) === picked ? "on" : ""}" style="left:${100 * a.rect.x / page.w}%;top:${100 * a.rect.y / page.h}%;width:${100 * a.rect.w / page.w}%;height:${100 * a.rect.h / page.h}%"><span>${i + 1}</span></div>`).join("");
+
+  const p = (e) => d?.target_probabilities?.[e.index] ?? Math.max(-1, ...(e.options || []).map((o) => d?.target_probabilities?.[o.index] ?? -1));
+  const els = [...state.elements];
+  if (d) els.sort((a, b) => p(b) - p(a));
+  $("actions").innerHTML = els.map((e) => {
+    const v = p(e);
+    return `<div class="a ${e.index === picked ? "on" : ""}"><span class="i">${esc(e.index)}</span><span class="l">${esc(e.label)}<small>${esc(e.role)} · ${esc(e.operations.join(" / "))}</small>${v >= 0 ? `<i style="--p:${v * 100}%"></i>` : ""}</span><span class="p">${v >= 0 ? pct(v) : ""}</span></div>`;
+  }).join("");
+  if (picked) document.querySelector(".a.on")?.scrollIntoView({ block: "nearest" });
+
+  $("trace").innerHTML = state.history.length
+    ? state.history.map((h) => `<div class="r"><span class="n">${String(h.step).padStart(2, "0")}</span><span>${esc(h.action)}${h.text ? ` <b>“${esc(h.text)}”</b>` : ""}</span><span class="m">${h.latency_ms} ms · ${pct(h.probability)}</span></div>`).join("")
+    : '<p class="m">No actions yet.</p>';
 }
-$("task-form").addEventListener("submit", (event) => {
+
+function setRunning(on, status) {
+  running = on;
+  $("start").textContent = on ? "Stop ■" : "Start ↗";
+  $("goal").disabled = on;
+  if (status) $("status").textContent = status;
+}
+
+$("task").addEventListener("submit", async (event) => {
   event.preventDefault();
-  automatic = false;
-  perform(
-    () =>
-      call("reset", { scenario: $("scenario").value, goal: $("goal").value }),
-    "Opening a tab in the Notte session…",
-  );
-});
-$("choose").addEventListener("click", () =>
-  perform(() => call("predict"), "Jev is comparing the actions…"),
-);
-$("execute").addEventListener("click", () =>
-  perform(
-    () => call("act", { fingerprint: state.page.fingerprint }),
-    "Executing the choice…",
-  ),
-);
-$("auto").addEventListener("click", () =>
-  perform(async () => {
-    automatic = true;
-    controls();
-    for (let i = 0; i < state.max_steps * 2 && automatic; i++) {
-      $("status").textContent = "Running…";
-      if ($("pace").checked) {
-        await call("predict");
-        await new Promise(resolve => setTimeout(resolve, 450));
-        if (!automatic) break;
-        await call("act", {fingerprint: state.page.fingerprint});
-      } else {
-        await call("tick");
-      }
+  if (running) return setRunning(false, "stopping after this step…");
+  setRunning(true, "opening a tab in the Notte browser…");
+  try {
+    await call("reset", { scenario: startUrl($("goal").value), goal: $("goal").value });
+    for (let i = 0; running && i < state.max_steps * 2; i++) {
+      $("status").textContent = "choosing…";
+      await call("predict");
+      if (!running || ["done", "blocked"].includes(state.status)) break;
+      $("status").textContent = "executing…";
+      await call("act", { fingerprint: state.page.fingerprint });
       if (["done", "blocked"].includes(state.status)) break;
     }
-    automatic = false;
-  }, "Running the browser…"),
-);
-$("stop").addEventListener("click", () => {
-  automatic = false;
-  $("status").textContent = "Pausing after the current request…";
-  controls();
+    const secs = state?.elapsed_ms != null ? ` · ${(state.elapsed_ms / 1000).toFixed(1)} s` : "";
+    setRunning(false, `${state?.status === "done" ? "done" : state?.status === "blocked" ? "blocked: no supported next action" : "stopped"}${secs}`);
+  } catch (error) {
+    setRunning(false, `error: ${error.message}`);
+  }
 });
-$("overlays").addEventListener("change", () => {
-  $("targets").hidden = !$("overlays").checked;
-});
-$("choices").addEventListener("pointerover", (event) => {
-  const id = event.target.closest("[data-action]")?.dataset.action;
-  document
-    .querySelectorAll(".target")
-    .forEach((t) =>
-      t.classList.toggle(
-        "selected",
-        t.dataset.action === id || t.dataset.action === state?.decision?.target?.split(':')[0],
-      ),
-    );
-});
-$("choices").addEventListener("pointerleave", () =>
-  document
-    .querySelectorAll(".target")
-    .forEach((t) =>
-      t.classList.toggle(
-        "selected",
-        t.dataset.action === state?.decision?.target?.split(':')[0],
-      ),
-    ),
-);
-$("download").addEventListener("click", () => {
-  const { page, ...rest } = state;
-  const blob = new Blob(
-    [
-      JSON.stringify(
-        { ...rest, page: { ...page, screenshot: undefined } },
-        null,
-        2,
-      ),
-    ],
-    { type: "application/json" },
-  );
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "typesafe-browser-trace.json";
-  a.click();
-  URL.revokeObjectURL(url);
-});
-fetch("/api/state")
-  .then((r) => r.json())
-  .then((s) => {
-    state = s;
-    render();
-  })
-  .catch(() => {
-    $("status").textContent = "Cannot reach local demo server";
-  });

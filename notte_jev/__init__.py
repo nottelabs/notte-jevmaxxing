@@ -69,14 +69,34 @@ def main():
 
 
 def inspector():
-    """Serve the Notte × Jev inspector (http://127.0.0.1:8766) on a Notte browser.
+    """Serve the Notte Jevmaxxing UI (http://127.0.0.1:8766).
 
-    Reuses jev's demo server and agent loop; only the static UI and the
-    reset command (any URL instead of fixed scenarios) are ours.
+    Reuses jev's demo server and agent loop. Every Start gets a fresh Notte
+    session, so an idle or expired browser connection never breaks a new task.
     """
     from pathlib import Path
 
+    from browser_harness.admin import restart_daemon
     from jev_ultrafast import Agent, demo
+
+    current = {"session": None, "name": None}
+
+    def stop_current():
+        try:
+            demo.close_browser()  # closes the tab; fails harmlessly if the connection already died
+        except Exception:
+            demo.AGENT = None
+        if current["name"]:
+            try:
+                restart_daemon(current["name"])  # "restart" only stops
+            except Exception:
+                pass
+        if current["session"]:
+            try:
+                current["session"].stop()
+            except Exception:
+                pass
+        current.update(session=None, name=None)
 
     def command(name, body):
         if name != "reset":
@@ -85,23 +105,19 @@ def inspector():
         if not url.startswith(("http://", "https://")):
             raise ValueError("Enter a full http(s) URL")
         if not 0 < len(goal) <= 2000:
-            raise ValueError("Enter a goal of 1–2,000 characters")
-        demo.close_browser()
+            raise ValueError("Enter a task of 1–2,000 characters")
+        stop_current()
+        session = NotteClient().Session(idle_timeout_minutes=5, max_duration_minutes=30)
+        session.start()
+        current.update(session=session, name=f"notte-{session.session_id[:8]}")
+        _point_harness_at(current["name"], session.cdp_url())
         demo.AGENT = Agent(url, goal, screenshots=True)
         return demo.response_state()
 
     demo_command, demo.command = demo.command, command
     demo.ROOT = Path(__file__).parent  # serves notte_jev/static/
     demo.load_environment()
-    session = NotteClient().Session(open_viewer=True, idle_timeout_minutes=15, max_duration_minutes=30)
-    session.start()
-    name = f"notte-{session.session_id[:8]}"
     try:
-        _point_harness_at(name, session.cdp_url())
         demo.main()
     finally:
-        from browser_harness.admin import restart_daemon
-
-        demo.close_browser()
-        restart_daemon(name)
-        session.stop()
+        stop_current()
