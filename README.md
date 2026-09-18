@@ -14,6 +14,14 @@ uv run --env-file .env notte-jev \
   --viewer
 ```
 
+Inspector (jev's own UI: element table, operation/target probabilities, executed actions), on a Notte browser:
+
+```bash
+uv run --env-file .env notte-jev-inspector   # then open http://127.0.0.1:8766 -> Start demo -> Run automatically
+```
+
+Only the Google Flights scenario works there; the other two load fixtures from localhost, which the cloud browser can't reach.
+
 As a library:
 
 ```python

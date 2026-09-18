@@ -60,3 +60,26 @@ def main():
         for state in agent.run():
             print(f"{state['elapsed_ms']:>5} ms  {len(state['history'])} actions  {state['status']}")
         print(state["page"]["url"])
+
+
+def inspector():
+    """Serve jev's local inspector (http://127.0.0.1:8766) on a Notte browser.
+
+    Only the Google Flights scenario works here: the travel/research fixtures
+    are served from localhost, which a cloud browser cannot reach.
+    """
+    from jev_ultrafast import demo
+
+    demo.load_environment()
+    session = NotteClient().Session(open_viewer=True, idle_timeout_minutes=15, max_duration_minutes=30)
+    session.start()
+    name = f"notte-{session.session_id[:8]}"
+    try:
+        _point_harness_at(name, session.cdp_url())
+        demo.main()
+    finally:
+        from browser_harness.admin import restart_daemon
+
+        demo.close_browser()
+        restart_daemon(name)
+        session.stop()
