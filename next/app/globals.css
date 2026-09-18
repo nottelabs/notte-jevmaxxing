@@ -73,6 +73,24 @@ aside .label { color: var(--dim); } #op { color: var(--pink); margin-left: 6px; 
 .m { color: var(--dim); margin: 0; white-space: nowrap; }
 
 @media (max-width: 900px) {
-  .window { grid-template-columns: 1fr; } .browser { border-right: 0; }
+  .window { grid-template-columns: minmax(0, 1fr); } .browser { border-right: 0; min-width: 0; }
   aside { height: auto; min-height: 0; } #actions { max-height: 60vh; }
+}
+/* Phones: Start, timer and status sit above the browser, so a run can be started and watched without scrolling. */
+@media (max-width: 640px) {
+  main { padding: 16px 12px 32px; gap: 14px; }
+  .task input, .task textarea { font-size: 16px; } /* below 16px iOS zooms the page on focus */
+  .task textarea { min-height: 7.5em; }
+  .window { box-shadow: 0 16px 40px -16px rgba(30, 30, 30, 0.6); }
+  aside { display: contents; }
+  aside > * { margin: 0 14px; }
+  .controls { order: -2; margin-top: 14px; gap: 14px; } #status { order: -1; margin: 6px 14px 12px; }
+  .browser { border-top: 1px dashed var(--dash); border-bottom: 1px dashed var(--dash); }
+  aside > .label { margin-top: 14px; margin-bottom: 8px; }
+  #actions { max-height: 38vh; margin-bottom: 12px; }
+  .replay { margin-bottom: 14px; } .replay button { width: 56px; height: 40px; }
+  #start, #timer { font-size: 28px; }
+  .bar { font-size: 11px; padding: 8px 12px; }
+  .t span { display: none; } .t.on span { display: block; } /* 25+ index chips do not fit a 350px page */
+  .trace { padding: 14px; } .r { grid-template-columns: 22px 1fr; row-gap: 2px; } .r .m { grid-column: 2; color: var(--dim); }
 }
