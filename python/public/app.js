@@ -33,7 +33,9 @@ function draw(s) {
 
   const seen = new Map();
   for (const a of page.actions) if (a.rect && !seen.has(a.node)) seen.set(a.node, a);
-  $("targets").innerHTML = [...seen.values()].map((a, i) =>
+  // Once the session stops the viewer becomes Notte's replay player, which the live boxes no longer match.
+  const boxes = running || s !== state ? [...seen.values()] : [];
+  $("targets").innerHTML = boxes.map((a, i) =>
     `<div class="t ${String(i + 1) === picked ? "on" : ""}" style="left:${100 * a.rect.x / page.w}%;top:${100 * a.rect.y / page.h}%;width:${100 * a.rect.w / page.w}%;height:${100 * a.rect.h / page.h}%"><span>${i + 1}</span></div>`).join("");
 
   const p = (e) => d?.target_probabilities?.[e.index] ?? Math.max(-1, ...(e.options || []).map((o) => d?.target_probabilities?.[o.index] ?? -1));
@@ -77,6 +79,7 @@ function setRunning(on, status) {
     tick = setInterval(() => ($("timer").textContent = `${((performance.now() - started) / 1000).toFixed(1)}s`), 100);
   }
   $("timer").classList.toggle("done", !on);
+  if (!on) render();
 }
 
 // Live view already shows the latest decision, so ← from live goes to the one before it.
