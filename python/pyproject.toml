@@ -1,0 +1,23 @@
+[project]
+name = "notte-jev"
+version = "0.1.0"
+description = "Run jev-ultrafast on Notte browser sessions."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "notte-sdk>=1.0",
+    "websockets>=13.1",
+    "httpx[http2]>=0.28,<1",
+]
+
+[project.scripts]
+notte-jev = "notte_jev:main"
+notte-jevmaxxing = "notte_jev:inspector"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["notte_jev", "jev_ultrafast"]
+

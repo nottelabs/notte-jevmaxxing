@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="demo-token" content="__TOKEN__" />
+    <title>Notte Jevmaxxing</title>
+    <link rel="stylesheet" href="/style.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500&family=JetBrains+Mono:wght@300;500&family=Silkscreen&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+  </head>
+  <body>
+    <main>
+      <form id="task" class="task">
+        <span class="label">task</span>
+        <textarea id="goal" rows="2" required placeholder="What should the browser do?">On https://www.google.com/travel/flights?hl=en find one-way flights from Zurich to London on September 20, 2026, for one adult in economy. Stop when matching flight options are visible.</textarea>
+      </form>
+
+      <section class="window">
+        <div class="browser">
+          <div class="bar"><a class="brand" href="https://notte.cc" target="_blank" rel="noreferrer">notte browser</a><span id="page-url"></span></div>
+          <div class="viewport">
+            <p id="empty">Enter a task and press Start.</p>
+            <iframe id="viewer" title="Notte live viewer" allow="clipboard-read; clipboard-write" hidden></iframe>
+            <img id="shot" alt="Replayed step" hidden />
+            <div id="targets"></div>
+          </div>
+        </div>
+        <aside>
+          <div class="controls">
+            <button id="start" form="task" type="submit">Start ↗</button>
+            <button id="clear" type="button" hidden>clear</button>
+            <span id="timer" hidden>0.0s</span>
+          </div>
+          <p id="status">ready</p>
+          <div class="label">action space <span id="op"></span></div>
+          <div id="actions"></div>
+          <div id="replay" class="replay" hidden>
+            <button id="prev" type="button" aria-label="Previous step">←</button>
+            <span id="step">step 0 / 0</span>
+            <button id="next" type="button" aria-label="Next step">→</button>
+          </div>
+        </aside>
+      </section>
+
+      <section class="window trace">
+        <div class="label">trace</div>
+        <div id="trace"></div>
+      </section>
+    </main>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
