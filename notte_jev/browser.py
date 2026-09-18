@@ -5,7 +5,7 @@ millisecond. A Notte session answers in ~200 ms, so every sequential command
 is visible. This keeps jev's observe/act/guard logic and changes the transport:
 
 - one direct websocket to the session (no Browser Harness daemon to spawn),
-- the start page is opened by Target.createTarget and awaited with one call,
+- the session's own tab is reused (the live viewer streams it) and load is awaited with one call,
 - input events are sent back to back and confirmed together,
 - the element snapshot and the screenshot travel in the same flight.
 """
@@ -13,6 +13,7 @@ is visible. This keeps jev's observe/act/guard logic and changes the transport:
 import json
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from itertools import count
 
 import jev_ultrafast.agent as jev_agent
@@ -27,6 +28,7 @@ DEFERRED = ("Input.", "Emulation.")
 LOADED = """new Promise(r => location.href === 'about:blank' ? setTimeout(() => r(false), 50)
   : document.readyState === 'complete' ? r(true) : addEventListener('load', () => r(true)))"""
 CONNECTIONS = {}  # CDP session id -> Connection, for jev's module-level cdp() calls
+POOL = ThreadPoolExecutor(max_workers=2, thread_name_prefix="notte-cdp")
 
 
 class Connection:
@@ -68,14 +70,19 @@ class Connection:
 
 
 class NotteBrowser(jev.Browser):
-    def __init__(self, cdp_url, url):
+    def __init__(self, cdp_url):
         self.cdp = Connection(cdp_url)
-        # The viewport is already set by the Notte session, so the page can load from the first command.
-        self.target = self.cdp("Target.createTarget", url=url, background=True)["targetId"]
+        # Drive the session's own tab: it is the one the Notte live viewer streams.
+        pages = [t for t in self.cdp("Target.getTargets")["targetInfos"] if t["type"] == "page"]
+        self.target = pages[0]["targetId"] if pages else self.cdp("Target.createTarget", url="about:blank")["targetId"]
         self.session = self.cdp("Target.attachToTarget", targetId=self.target, flatten=True)["sessionId"]
         CONNECTIONS[self.session] = self.cdp
+        # The viewport is already set by the Notte session; these ride along with the navigation.
         self.call("Emulation.setDeviceMetricsOverride", width=1120, height=780, deviceScaleFactor=1, mobile=False)
         self.call("Emulation.setFocusEmulationEnabled", enabled=True)
+
+    def open(self, url):
+        self.call("Page.navigate", url=url)
         deadline = time.monotonic() + 15
         while url != "about:blank" and time.monotonic() < deadline:
             try:  # one awaited call instead of polling; a navigation underneath it just asks again
@@ -84,18 +91,16 @@ class NotteBrowser(jev.Browser):
                     break
             except RuntimeError:
                 time.sleep(0.02)
+        return self
 
     def call(self, method, **params):
         return self.cdp(method, session_id=self.session, **params)
 
     def close(self):
         if self.target:
-            target, self.target = self.target, None
+            self.target = None  # the tab belongs to the session and goes away with it
             CONNECTIONS.pop(self.session, None)
-            try:
-                self.cdp("Target.closeTarget", targetId=target)
-            finally:
-                self.cdp.socket.close()
+            self.cdp.socket.close()
 
 
 def cdp(method, session_id=None, **params):
@@ -126,6 +131,10 @@ jev_operation, jev.browser_operation, jev.cdp = jev.browser_operation, browser_o
 
 
 def use_session(session):
-    """Make the next jev Agent open its tab in this started Notte session."""
-    cdp_url = session.cdp_url()
-    jev_agent.Browser = lambda url: NotteBrowser(cdp_url, url)
+    """Make the next jev Agent open its page in this started Notte session.
+
+    The websocket and the tab are connected in the background right away, while the
+    caller is still busy (the inspector embeds the live viewer in that time).
+    """
+    warm = POOL.submit(NotteBrowser, session.cdp_url())
+    jev_agent.Browser = lambda url: warm.result().open(url)
