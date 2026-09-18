@@ -11,5 +11,6 @@ uv run --env-file .env notte-jevmaxxing
 
 Open http://127.0.0.1:8766. Each Start opens a fresh Notte session. A URL in the task is used as the start page, otherwise google.com.
 
-- `notte_jev/__init__.py` connects a Notte session to jev over CDP.
+- `notte_jev/__init__.py` starts a Notte session and runs jev on it.
+- `notte_jev/browser.py` is jev's browser over the session's CDP websocket, with commands pipelined for a remote browser.
 - `public/` is the UI.
