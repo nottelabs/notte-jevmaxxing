@@ -119,7 +119,13 @@ def inspector():
         return demo.response_state()
 
     demo_command, demo.command = demo.command, command
-    demo.ROOT = Path(__file__).parent  # serves notte_jev/static/
+    class _Root:  # jev's server reads ROOT / "static" / file; serve the repo's public/ instead
+        parent = Path(__file__).parent.parent
+
+        def __truediv__(self, part):
+            return self.parent / ("public" if part == "static" else part)
+
+    demo.ROOT = _Root()
     demo.load_environment()
     try:
         demo.main()
