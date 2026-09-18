@@ -134,7 +134,9 @@ export default function Home() {
             {/* Live, the Notte viewer streams the page. A replayed step covers it with that step's own screenshot. */}
             {view != null && page?.screenshot && <img id="shot" alt="Replayed step" src={`data:image/jpeg;base64,${page.screenshot}`} />}
             <div id="targets">
+              {/* Once the session stops the viewer becomes Notte's replay player, which the live boxes no longer match. */}
               {page &&
+                (running || view != null) &&
                 [...boxes.values()].map((a, i) => (
                   <div
                     key={i}
