@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="demo-token" content="__TOKEN__" />
+    <title>Notte × Jev</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500&family=JetBrains+Mono:wght@300;500&family=Silkscreen&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <div class="pixel-edge top"></div>
+    <header class="nav">
+      <div class="wordmark">Notte<span class="tag">Jev.Browser</span></div>
+      <nav>
+        <span class="local"><span class="dot" id="status-dot"></span> cloud browser</span>
+        <a href="https://docs.notte.cc" target="_blank" rel="noreferrer">notte.cc</a>
+        <a href="https://github.com/browser-use/jev-ultrafast" target="_blank" rel="noreferrer">jev-ultrafast</a>
+        <a href="https://typesafe.ai" target="_blank" rel="noreferrer">typesafe.ai</a>
+      </nav>
+    </header>
+
+    <main class="hero">
+      <form id="task-form" class="task">
+        <div class="field">
+          <label for="scenario">url</label>
+          <input id="scenario" name="scenario" type="url" required value="https://www.google.com/travel/flights?hl=en" />
+        </div>
+        <div class="field">
+          <label for="goal">goal</label>
+          <textarea id="goal" name="goal" rows="3">Find one-way flights from Zurich to London on September 20, 2026, for one adult in economy. Stop when matching flight options are visible. Do not select or book a flight.</textarea>
+        </div>
+        <button type="submit" id="start" class="cta primary">Start ↗</button>
+      </form>
+
+      <section class="window" aria-label="inspector">
+        <div class="titlebar">
+          <span class="dots"><i></i><i></i><i></i></span>
+          <span class="title" id="url">notte session — waiting</span>
+          <span class="live">LIVE</span>
+          <span class="model">jev-latest</span>
+        </div>
+
+        <div class="body">
+          <div class="board">
+            <div class="viewport" id="viewport">
+              <div class="empty" id="empty">
+                <p class="empty-symbol">[ ↗ ]</p>
+                <p>Start a task to see the cloud browser,<br />its available actions, and Jev's choice.</p>
+              </div>
+              <img id="screenshot" alt="Live screenshot of the controlled browser" hidden />
+              <div id="targets"></div>
+            </div>
+            <div class="keys"><span id="page-title">no page</span><span>AX tree → typed actions → CDP → Notte</span></div>
+          </div>
+
+          <aside class="hud">
+            <div class="controls">
+              <button type="button" id="choose" class="cta" disabled>Choose</button>
+              <button type="button" id="execute" class="cta" disabled>Execute</button>
+              <button type="button" id="auto" class="cta primary" disabled>Run</button>
+              <button type="button" id="stop" class="cta on" hidden>Pause</button>
+            </div>
+            <div class="status"><span id="status" role="status">Ready to explore</span></div>
+            <div id="error" role="alert" hidden></div>
+
+            <div class="next">
+              <dt>next action</dt>
+              <h2 id="choice-title">Waiting for a page</h2>
+              <div id="plan" class="plan"></div>
+              <div id="operation-choices" class="operation-choices"></div>
+            </div>
+
+            <dl class="stats">
+              <div><dt>latency</dt><dd id="latency">–</dd></div>
+              <div><dt>confidence</dt><dd id="confidence">–</dd></div>
+              <div><dt>operation</dt><dd id="completion">–</dd></div>
+              <div><dt>elements</dt><dd id="action-count">0</dd></div>
+            </dl>
+
+            <div class="options">
+              <label><input type="checkbox" id="overlays" name="overlays" checked /> targets</label>
+              <label><input type="checkbox" id="pace" name="pace" /> slow motion</label>
+              <span class="note" id="ranking-note">Choose to rank</span>
+            </div>
+
+            <div id="choices" class="choices">
+              <p class="muted">Indexed elements will appear here.</p>
+            </div>
+          </aside>
+        </div>
+
+        <div class="trace">
+          <div class="trace-heading">
+            <span>decision trail <b id="step-count">0 actions</b></span>
+            <button type="button" id="download" class="cta small" disabled>Export trace ↓</button>
+          </div>
+          <div id="history"><p class="muted">Each executed action leaves an observed result.</p></div>
+        </div>
+
+        <details>
+          <summary>what the model sees</summary>
+          <pre id="model-state">Start a task to inspect its structured state.</pre>
+        </details>
+      </section>
+    </main>
+
+    <div class="hash" aria-hidden="true"></div>
+    <footer>
+      <span>Notte × Browser Use × TypeSafe · <span id="helper">text helper loading</span></span>
+      <a href="https://github.com/nottelabs/notte-jev" target="_blank" rel="noreferrer">nottelabs/notte-jev</a>
+    </footer>
+    <div class="pixel-edge bottom"></div>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

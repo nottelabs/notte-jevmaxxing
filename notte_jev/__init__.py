@@ -44,6 +44,12 @@ def _point_harness_at(name, cdp_ws):
 
     helpers.NAME = admin.NAME = name
     helpers.SOCK = _ipc.sock_addr(name)
+    # A remote browser answers slower than local Chrome; the harness default of 5s pauses runs mid-click.
+    import functools
+
+    import jev_ultrafast.browser as jev_browser
+
+    jev_browser.cdp = functools.partial(helpers.cdp, _response_timeout=30)
 
 
 def main():
@@ -63,13 +69,29 @@ def main():
 
 
 def inspector():
-    """Serve jev's local inspector (http://127.0.0.1:8766) on a Notte browser.
+    """Serve the Notte × Jev inspector (http://127.0.0.1:8766) on a Notte browser.
 
-    Only the Google Flights scenario works here: the travel/research fixtures
-    are served from localhost, which a cloud browser cannot reach.
+    Reuses jev's demo server and agent loop; only the static UI and the
+    reset command (any URL instead of fixed scenarios) are ours.
     """
-    from jev_ultrafast import demo
+    from pathlib import Path
 
+    from jev_ultrafast import Agent, demo
+
+    def command(name, body):
+        if name != "reset":
+            return demo_command(name, body)
+        url, goal = body.get("scenario", "").strip(), body.get("goal", "").strip()
+        if not url.startswith(("http://", "https://")):
+            raise ValueError("Enter a full http(s) URL")
+        if not 0 < len(goal) <= 2000:
+            raise ValueError("Enter a goal of 1–2,000 characters")
+        demo.close_browser()
+        demo.AGENT = Agent(url, goal, screenshots=True)
+        return demo.response_state()
+
+    demo_command, demo.command = demo.command, command
+    demo.ROOT = Path(__file__).parent  # serves notte_jev/static/
     demo.load_environment()
     session = NotteClient().Session(open_viewer=True, idle_timeout_minutes=15, max_duration_minutes=30)
     session.start()

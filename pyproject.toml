@@ -19,6 +19,7 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["notte_jev"]
+include = ["notte_jev/static/*"]
 
 [tool.hatch.metadata]
 allow-direct-references = true
