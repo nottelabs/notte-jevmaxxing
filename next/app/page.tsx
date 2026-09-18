@@ -32,7 +32,10 @@ export default function Home() {
   const shown = view == null ? state : frames[view];
   const decision = shown?.decision ?? null;
   const target = decision?.target?.split(":")[0];
-  useEffect(() => picked.current?.scrollIntoView({ block: "nearest" }), [shown, target]);
+  useEffect(() => {
+    // Braces matter: newer Chromium returns a Promise from scrollIntoView, and React would call it as a cleanup.
+    picked.current?.scrollIntoView({ block: "nearest" });
+  }, [shown, target]);
 
   async function start() {
     if (running) {
