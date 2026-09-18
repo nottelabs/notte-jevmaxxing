@@ -30,7 +30,8 @@ main { max-width: 1240px; margin: 0 auto; padding: 40px 24px; display: flex; fle
 .bar a.brand:hover { text-decoration: underline; }
 .bar { padding: 10px 14px; border-bottom: 1px dashed var(--dash); font-family: var(--mono); font-weight: 300; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--dim); }
 .viewport { position: relative; aspect-ratio: 1120 / 780; background: #2a2a2a; }
-.viewport img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.viewport iframe { display: block; width: 100%; height: 100%; border: 0; }
+.viewport img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 [hidden] { display: none !important; }
 #empty { position: absolute; inset: 0; margin: 0; display: grid; place-items: center; font-family: var(--mono); font-size: 13px; color: var(--dim); }
 #targets { position: absolute; inset: 0; pointer-events: none; }

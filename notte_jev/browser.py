@@ -5,7 +5,7 @@ millisecond. A Notte session answers in ~200 ms, so every sequential command
 is visible. This keeps jev's observe/act/guard logic and changes the transport:
 
 - one direct websocket to the session (no Browser Harness daemon to spawn),
-- the start page is opened by Target.createTarget and awaited with one call,
+- the session's own tab is reused (the live viewer streams it) and load is awaited with one call,
 - input events are sent back to back and confirmed together,
 - the element snapshot and the screenshot travel in the same flight.
 """
@@ -70,12 +70,15 @@ class Connection:
 class NotteBrowser(jev.Browser):
     def __init__(self, cdp_url, url):
         self.cdp = Connection(cdp_url)
-        # The viewport is already set by the Notte session, so the page can load from the first command.
-        self.target = self.cdp("Target.createTarget", url=url, background=True)["targetId"]
+        # Drive the session's own tab: it is the one the Notte live viewer streams.
+        pages = [t for t in self.cdp("Target.getTargets")["targetInfos"] if t["type"] == "page"]
+        self.target = pages[0]["targetId"] if pages else self.cdp("Target.createTarget", url="about:blank")["targetId"]
         self.session = self.cdp("Target.attachToTarget", targetId=self.target, flatten=True)["sessionId"]
         CONNECTIONS[self.session] = self.cdp
+        # The viewport is already set by the Notte session; these ride along with the navigation.
         self.call("Emulation.setDeviceMetricsOverride", width=1120, height=780, deviceScaleFactor=1, mobile=False)
         self.call("Emulation.setFocusEmulationEnabled", enabled=True)
+        self.call("Page.navigate", url=url)
         deadline = time.monotonic() + 15
         while url != "about:blank" and time.monotonic() < deadline:
             try:  # one awaited call instead of polling; a navigation underneath it just asks again
@@ -90,12 +93,9 @@ class NotteBrowser(jev.Browser):
 
     def close(self):
         if self.target:
-            target, self.target = self.target, None
+            self.target = None  # the tab belongs to the session and goes away with it
             CONNECTIONS.pop(self.session, None)
-            try:
-                self.cdp("Target.closeTarget", targetId=target)
-            finally:
-                self.cdp.socket.close()
+            self.cdp.socket.close()
 
 
 def cdp(method, session_id=None, **params):

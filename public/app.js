@@ -7,12 +7,16 @@ let state = null, running = false, started = 0, tick = null;
 // jev only clicks and types, so it needs a start page: the first URL in the prompt, else Google.
 const startUrl = (task) => task.match(/https?:\/\/[^\s"'<>]+/)?.[0].replace(/[.,;:!?)]+$/, "") || "https://www.google.com";
 
-async function call(name, body = {}) {
+async function post(name, body = {}) {
   const r = await fetch(`/api/${name}`, { method: "POST", headers: { "Content-Type": "application/json", "X-Demo-Token": token }, body: JSON.stringify(body) });
   const data = await r.json();
   if (!r.ok) throw Error(data.error || "Request failed");
-  state = data;
-  if (name === "predict" && data.decision) frames.push(data);
+  return data;
+}
+
+async function call(name, body = {}) {
+  state = await post(name, body);
+  if (name === "predict" && state.decision) frames.push(state);
   render();
 }
 
@@ -21,9 +25,9 @@ function draw(s) {
   if (!page) return;
   const d = s.decision || (s.status === "done" ? s.decisions?.at(-1) : null);
   const picked = d?.target?.split(":")[0];
-  $("empty").hidden = true;
-  $("shot").hidden = false;
-  $("shot").src = `data:image/jpeg;base64,${page.screenshot}`;
+  // Live, the Notte viewer streams the page. A replayed step covers it with that step's own screenshot.
+  $("shot").hidden = s === state || !page.screenshot;
+  if (!$("shot").hidden) $("shot").src = `data:image/jpeg;base64,${page.screenshot}`;
   $("page-url").textContent = page.url;
   $("op").textContent = d ? `→ ${d.operation} ${pct(d.operation_probabilities?.[d.operation] ?? 0)}` : `${s.elements.length} elements`;
 
@@ -82,8 +86,9 @@ $("next").addEventListener("click", () => { view = view + 1 >= frames.length - 1
 $("clear").addEventListener("click", () => {
   state = null;
   frames = []; view = null; $("replay").hidden = true;
-  $("shot").hidden = true;
+  $("shot").hidden = $("viewer").hidden = true;
   $("shot").removeAttribute("src");
+  $("viewer").removeAttribute("src");
   $("empty").hidden = false;
   $("targets").innerHTML = $("actions").innerHTML = $("op").textContent = "";
   $("trace").innerHTML = "";
@@ -96,15 +101,27 @@ $("task").addEventListener("submit", async (event) => {
   event.preventDefault();
   if (running) { running = false; $("status").textContent = "stopping after this step…"; return; }
   frames = []; view = null; $("replay").hidden = true;
-  setRunning(true, "opening a tab in the Notte browser…");
+  setRunning(true, "starting a Notte session…");
   try {
+    // The live viewer streams the browser from here on: no screenshots, and nothing to wait for before it shows.
+    const { viewer_url } = await post("session");
+    $("targets").innerHTML = "";
+    $("viewer").src = `${viewer_url}&mode=embed-minimal&interactive=0&theme=dark`;
+    $("viewer").hidden = false;
+    $("empty").hidden = true;
+    $("status").textContent = "opening the page…";
     await call("reset", { scenario: startUrl($("goal").value), goal: $("goal").value });
     for (let i = 0; running && i < state.max_steps * 2; i++) {
       $("status").textContent = "choosing…";
       await call("predict");
       if (!running || ["done", "blocked"].includes(state.status)) break;
       $("status").textContent = "executing…";
-      await call("act", { fingerprint: state.page.fingerprint });
+      try {
+        await call("act", { fingerprint: state.page.fingerprint });
+      } catch (error) {
+        // The page moved between the decision and the input. Nothing was executed; predict observes again.
+        if (!/Observe again|Choose again/.test(error.message)) throw error;
+      }
       if (["done", "blocked"].includes(state.status)) break;
     }
     setRunning(false, state?.status === "done" ? "done" : state?.status === "blocked" ? "blocked: no supported next action" : "stopped");

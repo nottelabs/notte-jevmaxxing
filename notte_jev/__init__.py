@@ -77,6 +77,14 @@ def inspector():
             worker.join()
 
     def command(name, body):
+        if name == "session":
+            # Answered as soon as the session exists, so the page can embed the live viewer while the agent sets up.
+            stop_current()
+            # No proxies: pages load about 2x faster. Pass proxies=True for sites that block datacenter IPs.
+            session = NotteClient().Session(proxies=False, idle_timeout_minutes=5, max_duration_minutes=30, **VIEWPORT)
+            session.start()
+            current["session"] = session
+            return {"viewer_url": session.response.viewer_url}
         if name != "reset":
             return demo_command(name, body)
         url, goal = body.get("scenario", "").strip(), body.get("goal", "").strip()
@@ -84,12 +92,10 @@ def inspector():
             raise ValueError("Enter a full http(s) URL")
         if not 0 < len(goal) <= 2000:
             raise ValueError("Enter a task of 1–2,000 characters")
-        stop_current()
-        # No proxies: pages load about 2x faster. Pass proxies=True for sites that block datacenter IPs.
-        session = NotteClient().Session(proxies=False, idle_timeout_minutes=5, max_duration_minutes=30, **VIEWPORT)
-        session.start()
-        current["session"] = session
-        use_session(session)
+        if current["session"] is None:
+            raise ValueError("Open a session first")
+        use_session(current["session"])
+        # The embedded Notte viewer shows the live browser; screenshots are kept only for step replay.
         demo.AGENT = Agent(url, goal, screenshots=True)
         return demo.response_state()
 
