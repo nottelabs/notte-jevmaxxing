@@ -84,7 +84,11 @@ def inspector():
             session = NotteClient().Session(proxies=False, idle_timeout_minutes=5, max_duration_minutes=30, **VIEWPORT)
             session.start()
             current["session"] = session
+            use_session(session)  # connects in the background; this reply does not wait for it
             return {"viewer_url": session.response.viewer_url}
+        if name == "close":  # the page is going away; do not leave its warm session running
+            stop_current()
+            return {}
         if name != "reset":
             return demo_command(name, body)
         url, goal = body.get("scenario", "").strip(), body.get("goal", "").strip()
@@ -94,7 +98,6 @@ def inspector():
             raise ValueError("Enter a task of 1–2,000 characters")
         if current["session"] is None:
             raise ValueError("Open a session first")
-        use_session(current["session"])
         # The embedded Notte viewer shows the live browser; screenshots are kept only for step replay.
         demo.AGENT = Agent(url, goal, screenshots=True)
         return demo.response_state()

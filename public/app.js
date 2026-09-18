@@ -83,34 +83,65 @@ function setRunning(on, status) {
 $("prev").addEventListener("click", () => { view = Math.max(0, (view ?? frames.length - 1) - 1); render(); });
 $("next").addEventListener("click", () => { view = view + 1 >= frames.length - 1 ? null : view + 1; render(); });
 
+// A Notte session is started before the task is: on page load and on Clear. Its live viewer is already
+// streaming and the agent's connection is already open, so Start only has to navigate.
+let warm = null; // { ready: Promise, at: ms } for a session no task has used yet
+const WARM_FOR = 4 * 60 * 1000; // below the session's 5 minute idle timeout
+
+function warmUp() {
+  const ready = post("session").then(({ viewer_url }) => {
+    $("viewer").src = `${viewer_url}&mode=embed-minimal&interactive=0&theme=dark`;
+    $("viewer").hidden = false;
+    $("empty").hidden = true;
+  });
+  warm = { ready, at: performance.now() };
+  ready.catch(() => { warm = null; }); // Start will try again and report the error
+  return ready;
+}
+
+async function takeSession() {
+  const session = warm && performance.now() - warm.at < WARM_FOR ? warm : null;
+  warm = null;
+  await (session ? session.ready : warmUp());
+  warm = null;
+}
+
+addEventListener("pagehide", () => {
+  fetch("/api/close", { method: "POST", keepalive: true, headers: { "Content-Type": "application/json", "X-Demo-Token": token }, body: "{}" });
+});
+
 $("clear").addEventListener("click", () => {
   state = null;
   frames = []; view = null; $("replay").hidden = true;
-  $("shot").hidden = $("viewer").hidden = true;
+  $("shot").hidden = true;
   $("shot").removeAttribute("src");
-  $("viewer").removeAttribute("src");
-  $("empty").hidden = false;
   $("targets").innerHTML = $("actions").innerHTML = $("op").textContent = "";
   $("trace").innerHTML = "";
   $("page-url").textContent = "";
   $("status").textContent = "ready";
   $("timer").hidden = $("clear").hidden = true;
+  warmUp().catch(() => {}); // a fresh browser for the next task
 });
 
 $("task").addEventListener("submit", async (event) => {
   event.preventDefault();
   if (running) { running = false; $("status").textContent = "stopping after this step…"; return; }
   frames = []; view = null; $("replay").hidden = true;
-  setRunning(true, "starting a Notte session…");
+  setRunning(true, warm ? "opening the page…" : "starting a Notte session…");
   try {
-    // The live viewer streams the browser from here on: no screenshots, and nothing to wait for before it shows.
-    const { viewer_url } = await post("session");
+    const task = { scenario: startUrl($("goal").value), goal: $("goal").value };
     $("targets").innerHTML = "";
-    $("viewer").src = `${viewer_url}&mode=embed-minimal&interactive=0&theme=dark`;
-    $("viewer").hidden = false;
-    $("empty").hidden = true;
+    await takeSession();
     $("status").textContent = "opening the page…";
-    await call("reset", { scenario: startUrl($("goal").value), goal: $("goal").value });
+    try {
+      await call("reset", task);
+    } catch {
+      // The warm session went away (idle timeout, closed tab elsewhere): pay for a cold start once.
+      $("status").textContent = "starting a Notte session…";
+      await warmUp();
+      warm = null;
+      await call("reset", task);
+    }
     for (let i = 0; running && i < state.max_steps * 2; i++) {
       $("status").textContent = "choosing…";
       await call("predict");
@@ -129,3 +160,5 @@ $("task").addEventListener("submit", async (event) => {
     setRunning(false, `error: ${error.message}`);
   }
 });
+
+warmUp().catch(() => {});

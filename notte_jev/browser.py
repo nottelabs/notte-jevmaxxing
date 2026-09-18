@@ -13,6 +13,7 @@ is visible. This keeps jev's observe/act/guard logic and changes the transport:
 import json
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from itertools import count
 
 import jev_ultrafast.agent as jev_agent
@@ -27,6 +28,7 @@ DEFERRED = ("Input.", "Emulation.")
 LOADED = """new Promise(r => location.href === 'about:blank' ? setTimeout(() => r(false), 50)
   : document.readyState === 'complete' ? r(true) : addEventListener('load', () => r(true)))"""
 CONNECTIONS = {}  # CDP session id -> Connection, for jev's module-level cdp() calls
+POOL = ThreadPoolExecutor(max_workers=2, thread_name_prefix="notte-cdp")
 
 
 class Connection:
@@ -68,7 +70,7 @@ class Connection:
 
 
 class NotteBrowser(jev.Browser):
-    def __init__(self, cdp_url, url):
+    def __init__(self, cdp_url):
         self.cdp = Connection(cdp_url)
         # Drive the session's own tab: it is the one the Notte live viewer streams.
         pages = [t for t in self.cdp("Target.getTargets")["targetInfos"] if t["type"] == "page"]
@@ -78,6 +80,8 @@ class NotteBrowser(jev.Browser):
         # The viewport is already set by the Notte session; these ride along with the navigation.
         self.call("Emulation.setDeviceMetricsOverride", width=1120, height=780, deviceScaleFactor=1, mobile=False)
         self.call("Emulation.setFocusEmulationEnabled", enabled=True)
+
+    def open(self, url):
         self.call("Page.navigate", url=url)
         deadline = time.monotonic() + 15
         while url != "about:blank" and time.monotonic() < deadline:
@@ -87,6 +91,7 @@ class NotteBrowser(jev.Browser):
                     break
             except RuntimeError:
                 time.sleep(0.02)
+        return self
 
     def call(self, method, **params):
         return self.cdp(method, session_id=self.session, **params)
@@ -126,6 +131,10 @@ jev_operation, jev.browser_operation, jev.cdp = jev.browser_operation, browser_o
 
 
 def use_session(session):
-    """Make the next jev Agent open its tab in this started Notte session."""
-    cdp_url = session.cdp_url()
-    jev_agent.Browser = lambda url: NotteBrowser(cdp_url, url)
+    """Make the next jev Agent open its page in this started Notte session.
+
+    The websocket and the tab are connected in the background right away, so a session
+    started ahead of the task (the inspector does this on page load) only has to navigate.
+    """
+    warm = POOL.submit(NotteBrowser, session.cdp_url())
+    jev_agent.Browser = lambda url: warm.result().open(url)
