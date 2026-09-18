@@ -26,6 +26,8 @@ main { max-width: 1240px; margin: 0 auto; padding: 40px 24px; display: flex; fle
 
 .window { background: var(--ink); color: var(--paper); box-shadow: 0 30px 80px -20px rgba(30, 30, 30, 0.6); display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr); }
 .browser { border-right: 1px dashed var(--dash); }
+.bar a.brand { color: var(--pink); text-decoration: none; margin-right: 12px; }
+.bar a.brand:hover { text-decoration: underline; }
 .bar { padding: 10px 14px; border-bottom: 1px dashed var(--dash); font-family: var(--mono); font-weight: 300; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--dim); }
 .viewport { position: relative; aspect-ratio: 1120 / 780; background: #2a2a2a; }
 .viewport img { display: block; width: 100%; height: 100%; object-fit: contain; }
@@ -59,6 +61,10 @@ aside .label { color: var(--dim); } #op { color: var(--pink); margin-left: 6px; 
 .a.on .i, .a.on .p { color: var(--pink); }
 .a.on i { background: linear-gradient(90deg, var(--pink) var(--p), transparent var(--p)); }
 
+.replay { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 10px; border-top: 1px dashed var(--dash); font-family: var(--mono); font-size: 13px; }
+.replay button { appearance: none; background: transparent; border: 1px solid var(--dash); color: var(--paper); font: 500 18px var(--mono); width: 44px; height: 32px; cursor: pointer; }
+.replay button:hover:not(:disabled) { border-color: var(--pink); color: var(--pink); }
+.replay button:disabled { opacity: 0.3; cursor: default; }
 .trace { display: block; padding: 16px 18px; font-family: var(--mono); font-size: 12px; font-weight: 300; }
 .trace .label { color: var(--dim); margin-bottom: 8px; }
 .r { display: grid; grid-template-columns: 28px 1fr auto; gap: 12px; padding: 6px 0; border-top: 1px dashed var(--dash); }

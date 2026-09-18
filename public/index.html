@@ -19,7 +19,7 @@
 
       <section class="window">
         <div class="browser">
-          <div class="bar"><span id="page-url">notte browser</span></div>
+          <div class="bar"><a class="brand" href="https://notte.cc" target="_blank" rel="noreferrer">notte browser</a><span id="page-url"></span></div>
           <div class="viewport">
             <p id="empty">Enter a task and press Start.</p>
             <img id="shot" alt="Notte browser" hidden />
@@ -35,6 +35,11 @@
           <p id="status">ready</p>
           <div class="label">action space <span id="op"></span></div>
           <div id="actions"></div>
+          <div id="replay" class="replay" hidden>
+            <button id="prev" type="button" aria-label="Previous step">←</button>
+            <span id="step">step 0 / 0</span>
+            <button id="next" type="button" aria-label="Next step">→</button>
+          </div>
         </aside>
       </section>
 
