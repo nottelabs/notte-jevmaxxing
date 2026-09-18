@@ -1,16 +1,11 @@
 # notte-jevmaxxing
 
 [jev-ultrafast](https://github.com/browser-use/jev-ultrafast) running on [Notte](https://docs.notte.cc) cloud browsers.
-Type a task, press Start, and watch Jev pick each action from the page's action space.
+Type a task, press Start, and watch Jev pick each action from the page's action space over the live Notte viewer.
 
-```bash
-uv sync
-cp .env.example .env   # NOTTE_API_KEY, TYPESAFE_API_KEY, TEXT_MODEL_API_KEY (OpenRouter)
-uv run --env-file .env notte-jevmaxxing
-```
+| | |
+|---|---|
+| [`next/`](next) | The hosted app: Next.js, one streaming serverless request per run. Deploy this one. |
+| [`python/`](python) | The original local inspector in Python, with jev vendored without Browser Harness. |
 
-Open http://127.0.0.1:8766. Each Start opens a fresh Notte session and embeds its live viewer. A URL in the task is used as the start page, otherwise google.com.
-
-- `notte_jev/__init__.py` starts a Notte session and runs jev on it.
-- `notte_jev/browser.py` is jev's browser over the session's CDP websocket, with commands pipelined for a remote browser.
-- `public/` is the UI.
+Both run the same loop with the same page reader (`python/jev_ultrafast/snapshot.js`) and the same guard checks.
