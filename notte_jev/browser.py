@@ -133,8 +133,8 @@ jev_operation, jev.browser_operation, jev.cdp = jev.browser_operation, browser_o
 def use_session(session):
     """Make the next jev Agent open its page in this started Notte session.
 
-    The websocket and the tab are connected in the background right away, so a session
-    started ahead of the task (the inspector does this on page load) only has to navigate.
+    The websocket and the tab are connected in the background right away, while the
+    caller is still busy (the inspector embeds the live viewer in that time).
     """
     warm = POOL.submit(NotteBrowser, session.cdp_url())
     jev_agent.Browser = lambda url: warm.result().open(url)
