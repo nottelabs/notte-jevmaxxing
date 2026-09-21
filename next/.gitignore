@@ -5,3 +5,4 @@ node_modules
 next-env.d.ts
 *.tsbuildinfo
 .vercel
+.impeccable/review/

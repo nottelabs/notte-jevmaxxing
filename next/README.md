@@ -28,3 +28,31 @@ so any instance can serve any run. Step replay lives in the browser tab.
 - Add the variables from `.env.example`. **Set `RUN_PASSWORD`** on anything public: every Start spends Notte and model credits.
 - `vercel.json` pins functions to `iad1`. Each CDP command is a round trip to the Notte browser, so the function
   should run in the region closest to it; measure and change `regions` if that is not `iad1`.
+
+## Wikipedia race
+
+Open `/race` for Jev vs a Cerebras-hosted model in two Notte browsers. The original inspector remains at `/`.
+Set `NOTTE_API_KEY`, `TYPESAFE_API_KEY`, and `CEREBRAS_API_KEY` in `.env.local`.
+`TYPESAFE_MODEL` defaults to `jev-latest`; `CEREBRAS_MODEL` defaults to `gpt-oss-120b` with low reasoning effort.
+The UI labels the model as well as the provider. Other Cerebras models must support strict JSON-schema outputs.
+No text-helper key is needed for a race. The existing `RUN_PASSWORD` protects both run endpoints.
+
+Both browsers resolve the target and load the start before a shared server timer begins. Each model receives
+the current article's first 6,000 characters, visited titles, and the first 250 unique eligible links in DOM order.
+The same extraction and instructions apply to both providers. Links beyond the viewport are allowed: the executor
+scrolls to the chosen link and clicks it through CDP. Navigation, references, namespaces, external links, and search
+are excluded. A link to the target is never injected or prioritized by the executor.
+
+The server verifies arrival using the loaded article's canonical URL, including redirects. Lowest elapsed finish
+time wins; both contestants can finish. Each has 20 hops and a shared 120-second deadline. Setup is excluded;
+inference, clicking, and page loading are included. Model latency reports successful requests, not failed calls.
+Failures and limits remain visible. Download race data to keep the paths, timings, and model IDs.
+
+Stop or disconnect cancels model calls and closes both browser connections. Session cleanup is kept alive with
+Next.js `after()`, with a five-minute session duration as a fallback. Runs require two concurrent Notte sessions.
+This is a live demonstration, not a statistically controlled benchmark; website and provider latency vary.
+
+```bash
+npm run test:race  # Offline rule, lifecycle, and provider-adapter tests
+npm run build
+```
