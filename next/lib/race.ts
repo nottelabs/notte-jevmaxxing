@@ -1,3 +1,5 @@
+import { setTimeout as delay } from "node:timers/promises";
+import { prepareStart } from "./race-start";
 import { NotteClient } from "notte-sdk";
 import { Browser, VIEWPORT } from "./browser";
 import { chooseLink, raceModels } from "./race-model";
@@ -6,6 +8,7 @@ import { MAX_HOPS, RACE_MS, RACERS, winnerOf, type Lane, type RaceEvent, type Wi
 
 type Driver = {
   viewer_url?: string;
+  prepareStart?: () => ReturnType<typeof prepareStart>;
   open: (url: string, signal: AbortSignal) => Promise<WikiPage>;
   follow: (link: WikiPage["links"][number], previous: string, signal: AbortSignal) => Promise<WikiPage>;
   close: () => Promise<void>;
@@ -27,12 +30,14 @@ async function openDriver(signal: AbortSignal): Promise<Driver> {
     await session.start();
     started = true;
     signal.throwIfAborted();
-    browser = await Browser.connect(await session.cdpUrl());
+    const cdp = await session.cdpUrl();
+    browser = await Browser.connect(cdp);
     signal.addEventListener("abort", disconnect, { once: true });
     signal.throwIfAborted();
     const status = await session.status();
     return {
       viewer_url: status.viewer_url ?? undefined,
+      prepareStart: () => prepareStart(browser!, cdp),
       open: async (url, signal) => { signal.throwIfAborted(); await browser!.open(url); return readWiki(browser!, signal); },
       follow: async (link, previous, signal) => { await clickWiki(browser!, link, signal); return readWiki(browser!, signal, previous); },
       close,
@@ -46,7 +51,7 @@ async function openDriver(signal: AbortSignal): Promise<Driver> {
 export type RaceDeps = { openDriver: (signal: AbortSignal) => Promise<Driver>; choose: typeof chooseLink; now: () => number };
 const defaults: RaceDeps = { openDriver, choose: chooseLink, now: () => performance.now() };
 
-export async function runRace(startUrl: string, targetUrl: string, signal: AbortSignal, emit: (event: RaceEvent) => void, deps: RaceDeps = defaults) {
+export async function runRace(startUrl: string, targetUrl: string, signal: AbortSignal, emit: (event: RaceEvent) => void, deps: RaceDeps = defaults, manualStart = false) {
   const lanes = RACERS.map((racer): Lane => ({ racer, model: raceModels()[racer], status: "preparing", path: [], elapsed_ms: 0, model_ms: 0, decisions: 0 }));
   const drivers: Driver[] = [];
   const controller = new AbortController();
@@ -75,6 +80,15 @@ export async function runRace(startUrl: string, targetUrl: string, signal: Abort
     if (failed?.status === "rejected") throw failed.reason;
     const prepared = setups.map((s) => (s as PromiseFulfilledResult<{ driver: Driver; page: WikiPage; target: WikiPage }>).value);
     if (articleUrl(prepared[0].page.url) !== articleUrl(prepared[1].page.url) || articleUrl(prepared[0].target.url) !== articleUrl(prepared[1].target.url)) throw new Error("The browsers resolved different articles. Please retry.");
+    active.throwIfAborted();
+    if (manualStart) {
+      const gate = await prepared[0].driver.prepareStart?.();
+      if (!gate) throw Error("Could not prepare the starting line.");
+      emit({ type: "prepared", token: gate.token, start: prepared[0].page, target: prepared[0].target });
+      await gate.wait(active);
+      emit({ type: "countdown" });
+      await delay(3000, undefined, { signal: active });
+    }
     active.throwIfAborted();
     const startedAt = deps.now();
     const elapsed = () => Math.round(deps.now() - startedAt);

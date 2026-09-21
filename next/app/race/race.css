@@ -85,3 +85,5 @@
   .race-route { display: block; text-align: left; margin-top: 6px; }
   .race-footer { flex-direction: column; }
 }
+
+.race-cancel { margin-inline-start: 16px; padding: 4px 0; border: 0; background: none; color: inherit; font: inherit; text-decoration: underline; text-underline-offset: 4px; }

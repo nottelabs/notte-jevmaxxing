@@ -20,6 +20,8 @@ export type Lane = {
 };
 export type RaceEvent =
   | { type: "lane"; lane: Lane }
+  | { type: "prepared"; token: string; start: Article; target: Article }
+  | { type: "countdown" }
   | { type: "start"; start: Article; target: Article }
   | { type: "finish"; winner: Racer | "tie" | null }
   | { type: "error"; error: string };

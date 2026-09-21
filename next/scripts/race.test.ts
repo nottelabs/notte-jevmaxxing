@@ -164,3 +164,65 @@ test("both provider adapters receive the same state and reject invented link IDs
     }
   } finally { globalThis.fetch = original; }
 });
+
+test("manual preparation makes no decisions until released and the countdown finishes", async () => {
+  const h = harness();
+  let release!: () => void;
+  const waiting = new Promise<void>((resolve) => { release = resolve; });
+  const open = h.deps.openDriver;
+  h.deps.openDriver = async (signal) => ({ ...await open(signal), prepareStart: async () => ({ token: "test-capability", wait: () => waiting }) });
+  const running = runRace(articleUrl("Start"), articleUrl("Target"), new AbortController().signal, h.emit, h.deps, true);
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  assert.ok(h.events.some((e) => e.type === "prepared"));
+  assert.ok(!h.events.some((e) => e.type === "start"));
+  assert.equal(h.closed(), 0);
+  release();
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  assert.ok(h.events.some((e) => e.type === "countdown"));
+  assert.ok(!h.events.some((e) => e.type === "start"));
+  await running;
+  assert.equal(h.closed(), 2);
+  const finished = h.events.filter((e) => e.type === "lane" && e.lane.status === "finished");
+  for (const e of finished) if (e.type === "lane") assert.ok(e.lane.elapsed_ms < 100);
+});
+
+test("cancel while waiting releases both prepared browsers without a decision", async () => {
+  const h = harness();
+  const stop = new AbortController();
+  const open = h.deps.openDriver;
+  h.deps.openDriver = async (signal) => ({ ...await open(signal), prepareStart: async () => ({ token: "test", wait: async (signal) => { signal.throwIfAborted(); } }) });
+  await assert.rejects(runRace(articleUrl("Start"), articleUrl("Target"), stop.signal, (event) => {
+    h.emit(event);
+    if (event.type === "prepared") stop.abort();
+  }, h.deps, true));
+  assert.equal(h.closed(), 2);
+  assert.ok(!h.events.some((e) => e.type === "start"));
+});
+
+test("an expired preparation releases both browsers without starting", async () => {
+  const h = harness();
+  const open = h.deps.openDriver;
+  h.deps.openDriver = async (signal) => ({ ...await open(signal), prepareStart: async () => ({ token: "test", wait: async () => { throw Error("prepared race expired"); } }) });
+  await assert.rejects(runRace(articleUrl("Start"), articleUrl("Target"), new AbortController().signal, h.emit, h.deps, true), /expired/);
+  assert.equal(h.closed(), 2);
+  assert.ok(!h.events.some((e) => e.type === "start"));
+});
+
+test("start capabilities hide credentials and reject tampering and expired tickets", async () => {
+  const { sealStart, readStart } = await import("../lib/race-start");
+  const previous = process.env.NOTTE_API_KEY;
+  process.env.NOTTE_API_KEY = "test-secret";
+  try {
+    const ticket = { cdp: "wss://example.test/private-browser", marker: "unique-race", expires: Date.now() + 90_000 };
+    const token = sealStart(ticket);
+    assert.deepEqual(readStart(token), ticket);
+    assert.ok(!Buffer.from(token, "base64url").toString().includes(ticket.cdp));
+    const tampered = Buffer.from(token, "base64url"); tampered[30] ^= 1;
+    assert.throws(() => readStart(tampered.toString("base64url")), /expired/);
+    assert.throws(() => readStart(sealStart({ ...ticket, expires: Date.now() - 1 })), /expired/);
+    assert.throws(() => readStart(null), /expired/);
+  } finally {
+    if (previous === undefined) delete process.env.NOTTE_API_KEY;
+    else process.env.NOTTE_API_KEY = previous;
+  }
+});

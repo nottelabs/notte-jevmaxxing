@@ -32,13 +32,13 @@ export async function POST(request: Request) {
 
   const stop = new AbortController();
   const signal = AbortSignal.any([request.signal, stop.signal]);
-  const timeout = setTimeout(() => stop.abort(), 240_000);
+  const timeout = setTimeout(() => stop.abort(), 285_000);
   const encoder = new TextEncoder();
   let work: Promise<void>;
   const stream = new ReadableStream({
     start(controller) {
       const emit = (event: unknown) => { if (!signal.aborted) controller.enqueue(encoder.encode(JSON.stringify(event) + "\n")); };
-      work = runRace(start, target, signal, emit).catch((error) => {
+      work = runRace(start, target, signal, emit, undefined, body.manual_start === true).catch((error) => {
         emit({ type: "error", error: error instanceof Error ? error.message : "Race failed. Try again." });
       }).finally(() => {
         clearTimeout(timeout);

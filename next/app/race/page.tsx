@@ -23,14 +23,18 @@ export default function WikiRace() {
   const [config, setConfig] = useState<Config | null>(null);
   const [password, setPassword] = useState("");
   const [lanes, setLanes] = useState<Partial<Record<Racer, Lane>>>({});
-  const [phase, setPhase] = useState<"idle" | "preparing" | "racing" | "finishing" | "done">("idle");
+  const [phase, setPhase] = useState<"idle" | "preparing" | "ready" | "countdown" | "racing" | "finishing" | "done">("idle");
+  const [startToken, setStartToken] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
+  const [countdown, setCountdown] = useState(3);
+  const [viewerLoaded, setViewerLoaded] = useState<Partial<Record<Racer, boolean>>>({});
   const [winner, setWinner] = useState<Racer | "tie" | null>(null);
   const [error, setError] = useState("");
   const [clock, setClock] = useState(0);
   const [route, setRoute] = useState<{ start: string; target: string } | null>(null);
   const controller = useRef<AbortController | null>(null);
   const began = useRef(0);
-  const busy = phase === "preparing" || phase === "racing" || phase === "finishing";
+  const busy = !["idle", "done"].includes(phase);
 
   useEffect(() => {
     const cancel = new AbortController();
@@ -47,16 +51,42 @@ export default function WikiRace() {
     return () => clearInterval(timer);
   }, [phase]);
 
+  useEffect(() => {
+    if (phase !== "countdown") return;
+    setCountdown(3);
+    const timer = setInterval(() => setCountdown((value) => Math.max(1, value - 1)), 1000);
+    return () => clearInterval(timer);
+  }, [phase]);
+
+  async function startPreparedRace() {
+    if (!startToken || starting || !controller.current) return;
+    const active = controller.current;
+    setStarting(true); setError("");
+    try {
+      const response = await fetch("/api/race/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: startToken }), signal: active.signal });
+      if (!response.ok) throw Error((await response.json()).error || "Could not start the race. Try again.");
+    } catch (error) {
+      if (!active.signal.aborted) setError((error as Error).message);
+    } finally { setStarting(false); }
+  }
+
   async function race(e: React.FormEvent) {
     e.preventDefault();
     if (controller.current) return;
     const abort = new AbortController();
     controller.current = abort;
+    setStartToken(null); setStarting(false); setViewerLoaded({});
     setLanes({}); setWinner(null); setError(""); setClock(0); setRoute(null); setPhase("preparing");
     let complete = false;
     const accept = (event: RaceEvent) => {
       if (event.type === "error") throw Error(event.error);
       if (event.type === "lane") setLanes((old) => ({ ...old, [event.lane.racer]: event.lane }));
+      if (event.type === "prepared") {
+        setStartToken(event.token);
+        setRoute({ start: event.start.title, target: event.target.title });
+        setPhase("ready");
+      }
+      if (event.type === "countdown") { setStartToken(null); setPhase("countdown"); }
       if (event.type === "start") {
         began.current = performance.now();
         setRoute({ start: event.start.title, target: event.target.title });
@@ -65,7 +95,7 @@ export default function WikiRace() {
       if (event.type === "finish") { complete = true; setWinner(event.winner); setPhase("finishing"); }
     };
     try {
-      const response = await fetch("/api/race", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ start, target, password }), signal: abort.signal });
+      const response = await fetch("/api/race", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ start, target, password, manual_start: true }), signal: abort.signal });
       if (!response.ok) throw Error((await response.json()).error || "Could not start the race.");
       if (!response.body) throw Error("The race stream is unavailable. Try again.");
       const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
@@ -86,6 +116,7 @@ export default function WikiRace() {
       setLanes((old) => Object.fromEntries(Object.entries(old).map(([key, lane]) => [key, ["preparing", "ready", "racing"].includes(lane.status) ? { ...lane, status: "stopped" } : lane])));
     } finally {
       controller.current = null;
+      setStartToken(null);
       setPhase("done");
     }
   }
@@ -98,7 +129,7 @@ export default function WikiRace() {
   }
 
   const failed = Object.values(lanes).some((lane) => lane.status === "error");
-  const announcement = phase === "preparing" ? "Opening two browsers. The clock starts when both are ready." : phase === "racing" ? "Race on. First to reach the target wins." : winner === "tie" ? "A tie at the recorded millisecond." : winner ? `${NAMES[winner]} wins this race.` : phase === "done" && !error ? failed ? "The race ended with errors. See each racer for details." : "Neither racer reached the target this time." : "Same start. Same target. Only Wikipedia links.";
+  const announcement = phase === "preparing" ? "Preparing both browsers. They will wait for you at the starting line." : phase === "ready" ? "Wait until both viewers show the starting article, then press Start race. You have 90 seconds." : phase === "countdown" ? `Starting in ${countdown}…` : phase === "racing" ? "Race on. First to reach the target wins." : winner === "tie" ? "A tie at the recorded millisecond." : winner ? `${NAMES[winner]} wins this race.` : phase === "done" && !error ? failed ? "The race ended with errors. See each racer for details." : "Neither racer reached the target this time." : "Same start. Same target. Only Wikipedia links.";
 
   return <main className="wiki-race">
     <header className="race-header">
@@ -113,13 +144,13 @@ export default function WikiRace() {
       <label>Starting article<input value={start} onChange={(e) => setStart(e.target.value)} disabled={busy} required maxLength={500} autoComplete="off" /></label>
       <span className="route-arrow" aria-hidden="true"><svg viewBox="0 0 32 24"><path d="M2 12h27M20 3l9 9-9 9" /></svg></span>
       <label>Target article<input value={target} onChange={(e) => setTarget(e.target.value)} disabled={busy} required maxLength={500} autoComplete="off" /></label>
-      {busy ? <button type="button" className="race-start" disabled={phase === "finishing"} onClick={() => controller.current?.abort()}>{phase === "finishing" ? "Finishing…" : "Stop race"}</button> : <button type="submit" className="race-start" disabled={!config?.configured}>{phase === "done" ? "Race again" : "Start race"}</button>}
+      {phase === "ready" ? <button type="button" className="race-start" disabled={starting || !RACERS.every((racer) => viewerLoaded[racer])} onClick={startPreparedRace}>{starting ? "Starting…" : "Start race"}</button> : busy ? <button type="button" className="race-start" disabled={phase === "finishing"} onClick={() => controller.current?.abort()}>{phase === "finishing" ? "Finishing…" : "Stop race"}</button> : <button type="submit" className="race-start" disabled={!config?.configured}>Prepare browsers</button>}
       {config?.password_required && <label className="race-password">Race password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required disabled={busy} /></label>}
     </form>
     <div className="race-presets"><span>Try a route</span>{PRESETS.map(([a, b]) => <button key={a} type="button" disabled={busy} onClick={() => { setStart(a); setTarget(b); }}>{a} <span aria-hidden="true">/</span> {b}</button>)}</div>
     {config && !config.configured && <p className="race-notice">Race setup is incomplete. Add the Notte, TypeSafe, and Cerebras API keys on the server to enable live races.</p>}
     {error && <p className="race-error" role="alert">{error}</p>}
-    <div className="race-announcement" role="status"><span>{announcement}</span>{route && <span className="race-route">{route.start} → {route.target}</span>}</div>
+    <div className="race-announcement" role="status"><span>{announcement}{phase === "ready" && <button type="button" className="race-cancel" onClick={() => controller.current?.abort()}>Cancel</button>}</span>{route && <span className="race-route">{route.start} → {route.target}</span>}</div>
     <div className="race-lanes">
       {RACERS.map((racer) => {
         const lane = lanes[racer];
@@ -131,7 +162,7 @@ export default function WikiRace() {
           <div className="lane-stats"><div><strong>{seconds(time)}</strong><span>race time</span></div><div><strong>{Math.max(0, (lane?.path.length ?? 1) - 1)}<small> / {MAX_HOPS}</small></strong><span>links followed</span></div><div><strong>{lane?.decisions ? `${Math.round(lane.model_ms / lane.decisions)} ms` : "n/a"}</strong><span>avg. decision</span></div></div>
           <div className="lane-address">{current?.title ?? (phase === "preparing" ? "Preparing Wikipedia…" : "Waiting at the starting line")}</div>
           {lane?.status === "error" && lane.message && <p className="lane-failure" role="alert">{lane.message}</p>}
-          <div className="viewport lane-viewport">{lane?.viewer_url ? <iframe title={`${NAMES[racer]} live Wikipedia browser`} src={viewerUrl(lane.viewer_url)} /> : <div className="lane-empty"><span className="wiki-letter" aria-hidden="true">W</span><p>{phase === "preparing" ? "Opening a Notte browser…" : "A whole encyclopedia between here and there."}</p></div>}</div>
+          <div className="viewport lane-viewport">{lane?.viewer_url ? <iframe title={`${NAMES[racer]} live Wikipedia browser`} src={viewerUrl(lane.viewer_url)} onLoad={() => setViewerLoaded((old) => ({ ...old, [racer]: true }))} /> : <div className="lane-empty"><span className="wiki-letter" aria-hidden="true">W</span><p>{phase === "preparing" ? "Opening a Notte browser…" : "A whole encyclopedia between here and there."}</p></div>}</div>
           <div className="lane-trail"><div className="trail-heading"><h3>Article trail</h3><span>{lane?.model_ms ? `${seconds(lane.model_ms)} deciding` : "No clicks yet"}</span></div>{lane?.message && lane.status !== "error" && <p className="lane-message">{lane.message}</p>}
             <ol>{lane?.path.map((step, i) => <li key={`${i}-${step.url}`}><span className="hop-number">{String(i).padStart(2, "0")}</span><a href={step.url} target="_blank" rel="noreferrer">{step.title}</a><time>{i ? seconds(step.elapsed_ms) : "Start"}</time></li>)}</ol>
             {!lane?.path.length && <p className="trail-empty">Every article visited will appear here.</p>}
@@ -139,6 +170,6 @@ export default function WikiRace() {
         </section>;
       })}
     </div>
-    <footer className="race-footer"><details><summary>How the race works</summary><p>Both Notte browsers load the starting article before a shared server timer starts. Each model sees the same kind of article text, visited history, and up to 250 unique article links in document order. No search, URL typing, external links, or back button. The executor scrolls to and clicks the chosen link.</p><p>First verified arrival wins. Both racers can finish, with a limit of {MAX_HOPS} clicks or 2 minutes each. Setup is excluded; model calls, browser actions, and page loading are included. Average decision time includes successful model responses only. This is one live race, not a general model benchmark.</p></details>{phase === "done" && Object.keys(lanes).length > 0 && <button type="button" onClick={download}>Download race data</button>}</footer>
+    <footer className="race-footer"><details><summary>How the race works</summary><p>Prepare browsers loads the starting article in both sessions. Once both viewers show it, press Start race for a three-second countdown. The shared server timer begins after the countdown. Each model sees the same kind of article text, visited history, and up to 250 unique article links in document order. No search, URL typing, external links, or back button. The executor scrolls to and clicks the chosen link.</p><p>First verified arrival wins. Both racers can finish, with a limit of {MAX_HOPS} clicks or 2 minutes each. Setup is excluded; model calls, browser actions, and page loading are included. Average decision time includes successful model responses only. This is one live race, not a general model benchmark.</p></details>{phase === "done" && Object.keys(lanes).length > 0 && <button type="button" onClick={download}>Download race data</button>}</footer>
   </main>;
 }
