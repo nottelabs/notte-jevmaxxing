@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { articleUrl } from "../lib/wiki";
 import { runRace, type RaceDeps } from "../lib/race";
-import { chooseLink } from "../lib/race-model";
+import { chooseLink, raceState } from "../lib/race-model";
 import { MAX_HOPS, winnerOf, type WikiPage, type RaceEvent, type Lane } from "../lib/race-types";
 
 const page = (title: string): WikiPage => ({ title, url: articleUrl(title), text: title, links: [{ id: "1", title: "Target", url: articleUrl("Target") }], total_links: 1 });
@@ -13,6 +13,20 @@ test("article inputs normalize titles and reject off-site URLs and non-article n
   for (const value of [null, "", "Main Page", "Category:Physics", "Special:Random", "https://evil.test/wiki/Coffee", "https://en.wikipedia.org@evil.test/wiki/Coffee", "http://en.wikipedia.org/wiki/Coffee", "https://en.wikipedia.org/w/index.php", "https://en.wikipedia.org/wiki/Category%3APhysics"]) {
     assert.throws(() => articleUrl(value), Error, String(value));
   }
+});
+
+test("visited options include clicked redirect aliases as well as landed article titles", () => {
+  const p = { ...page("Ratchet (device)"), links: [
+    { id: "1", title: "Ratchet (disambiguation)", url: articleUrl("Ratchet (disambiguation)") },
+    { id: "2", title: "Ratchet (device)", url: articleUrl("Ratchet (device)") },
+    { id: "3", title: "Gear", url: articleUrl("Gear") },
+  ] };
+  const history = [page("Ratchet (device)"), { ...page("Ratchet"), link: "Ratchet (disambiguation)" }, page("Ratchet (device)")];
+  const state = raceState(p, page("Hoberman sphere"), history);
+  assert.deepEqual(state.visited, ["Ratchet (device)", "Ratchet", "Ratchet (disambiguation)"]);
+  assert.deepEqual(state.links.map((link) => link.already_visited), [true, true, false]);
+  // History is information for both contestants, not a provider-specific link filter.
+  assert.deepEqual(state.links.map((link) => link.id), p.links.map((link) => link.id));
 });
 
 function harness() {
@@ -145,5 +159,8 @@ test("both provider adapters receive the same state and reject invented link IDs
     assert.match(bodies[0].questions.link.instructions, /`visited`/);
     assert.equal(bodies[0].questions.link.instructions, bodies[1].messages[0].content);
     assert.deepEqual(Object.keys(bodies[0].questions.link.criteria), bodies[1].response_format.json_schema.schema.properties.link.enum);
+    for (const link of bodies[0].state.links) {
+      assert.deepEqual(bodies[0].questions.link.criteria[link.id], { title: link.title, already_visited: link.already_visited });
+    }
   } finally { globalThis.fetch = original; }
 });

@@ -43,6 +43,10 @@ The same extraction and instructions apply to both providers. Links beyond the v
 scrolls to the chosen link and clicks it through CDP. Navigation, references, namespaces, external links, and search
 are excluded. A link to the target is never injected or prioritized by the executor.
 
+Visited state includes both landed article titles and clicked redirect aliases. Each offered link carries an
+`already_visited` flag, supplied to both models and Jev's choice descriptions. Revisited links remain available;
+this makes the history explicit without turning the race into a hard no-revisit game. The models can still loop.
+
 The server verifies arrival using the loaded article's canonical URL, including redirects. Lowest elapsed finish
 time wins; both contestants can finish. Each has 20 hops and a shared 120-second deadline. Setup is excluded;
 inference, clicking, and page loading are included. Model latency reports successful requests, not failed calls.
