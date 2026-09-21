@@ -65,3 +65,15 @@ npx playwright install chromium  # One-time browser test setup
 npm run test:wiki-browser  # Local DOM tests for hidden/sidebar links and click guards
 npm run build
 ```
+
+## No-turns chess
+
+Open `/chess` for a direct Jev versus Cerebras matchup. Both models independently select from the same-format board state and available moves. There are no browser sessions and no chess-engine assistance. The match begins after a three-second countdown; each side has at most one model request in flight.
+
+Moves resolve instantly and give the moved piece a two-second cooldown. Other pieces remain available. Capture the enemy king to win: check restrictions, castling, and en passant do not apply. Pawns promote to queens automatically. A surviving pair of kings after 120 seconds is a draw. Responses are revalidated against the current board, so a stale decision cannot move a captured piece or jump a new blocker. A provider failure interrupts the match instead of awarding a win.
+
+The existing `TYPESAFE_API_KEY`, `CEREBRAS_API_KEY`, provider model settings, and optional `RUN_PASSWORD` apply. No Notte key is required for chess. `GET /api/chess` returns model and configuration metadata; `POST /api/chess` accepts `{ white: "jev" | "cerebras", password?: string }` and streams NDJSON game events. Server state belongs to that request, with no database or cross-instance coordination. Stopping or disconnecting aborts outstanding requests. Each call has a ten-second timeout.
+
+The dark board shows per-piece cooldowns, model round-trip times, captures, and thinking status. Swap sides before starting. Sound is off by default. Completed or interrupted games can be replayed and downloaded as versioned event JSON; replay does not call either provider. Reloading the page clears its local recording.
+
+Run `npm run test:chess` for deterministic engine, concurrency, cancellation, replay, and provider-contract checks. Use `npm run build` to verify the application. This is a live matchup, not a general model benchmark.

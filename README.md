@@ -13,3 +13,5 @@ Both run the same loop with the same page reader (`python/jev_ultrafast/snapshot
 The Next.js app also includes a **Wikipedia race at `/race`**: Jev and a Cerebras-hosted model follow article
 links in separate Notte browsers, with a shared start, live viewers, article trails, and verified finish times.
 See [`next/README.md`](next/README.md#wikipedia-race) for configuration and race rules.
+
+**No-turns chess at `/chess`** puts Jev and Cerebras on one board with instant moves and per-piece cooldowns. Models play independently; capture the king to win. Includes local replay and downloadable match events.

@@ -57,3 +57,9 @@ The race uses the desktop viewport height, with a compact brand/title row and ro
 
 ## Race dark theme
 The race surface uses a neutral dark canvas (#101214), charcoal panels (#1b1e22), dark fields (#23272d), and light text (#eceef0). Jev uses a cool neutral accent (#dbe4ee); Cerebras retains amber (#f4c889). Muted text is #afb4bc. This theme is scoped to /race; the original inspector keeps its own palette. The idle announcement is omitted.
+
+## No-turns chess
+
+`/chess` extends the dark race theme into a shared-board experience. A single square board dominates the desktop viewport with Jev and Cerebras statistics on either side. On mobile both player summaries precede the board. Header and controls stay compact; rules and event history open over the board. Moves use short cosmetic transitions; model inference and the game clock never wait for animations. Reduced motion disables movement and capture animations, and sound is off by default.
+
+The canvas is #101214 with #eceef0 text and #aeb6bf secondary text. Jev uses #b8d9f0 and Cerebras #efc181. Board squares are #62717f and #34414f; pieces are original SVG silhouettes in #f1eee5 and #17202b with contrasting edges. Cooldown bars are #e8c888. Capture banners briefly occupy the board center and threats use #ffac91. Side colors belong to pieces; provider colors belong to player labels and capture announcements.

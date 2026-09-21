@@ -117,6 +117,7 @@ export default function Home() {
 
   return (
     <main>
+      <a href="/chess" style={{ color: "inherit", fontSize: 14 }}>No turns: Jev vs Cerebras chess →</a>
       <a href="/race" style={{ color: "inherit", fontSize: 14 }}>Try the Wikipedia race: Jev vs Cerebras →</a>
       <form className="task" id="task" onSubmit={(e) => (e.preventDefault(), start())}>
         <span className="label">task</span>
