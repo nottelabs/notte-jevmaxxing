@@ -138,8 +138,12 @@ test("both provider adapters receive the same state and reject invented link IDs
       bodies.push(JSON.parse(options!.body as string));
       return Response.json({ model: "test", answers: { link: { choice: "999" } }, choices: [{ message: { content: '{"link":"999"}' } }] });
     };
-    for (const racer of ["jev", "cerebras"] as const) await assert.rejects(chooseLink(racer, page("Start"), page("Target"), [], new AbortController().signal), /outside the offered/);
+    for (const racer of ["jev", "cerebras"] as const) await assert.rejects(chooseLink(racer, page("Start"), page("Target"), [page("Earlier article"), page("Start")], new AbortController().signal), /outside the offered/);
     assert.deepEqual(bodies[0].state, JSON.parse(bodies[1].messages[1].content));
+    assert.deepEqual(bodies[0].state.visited, ["Earlier article", "Start"]);
+    assert.match(bodies[0].questions.link.instructions, /Wikipedia article "Target"/);
+    assert.match(bodies[0].questions.link.instructions, /`visited`/);
+    assert.equal(bodies[0].questions.link.instructions, bodies[1].messages[0].content);
     assert.deepEqual(Object.keys(bodies[0].questions.link.criteria), bodies[1].response_format.json_schema.schema.properties.link.enum);
   } finally { globalThis.fetch = original; }
 });
