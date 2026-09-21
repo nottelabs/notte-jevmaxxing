@@ -54,3 +54,6 @@ The footer exposes race rules and completed-run data download. Keep provider/mod
 
 ## Compact race view
 The race uses the desktop viewport height, with a compact brand/title row and route controls above two flexible browser lanes. Provider names, model IDs, and metrics stay visible; the viewers take the remaining height. Article trails and rules open over the view instead of extending the document. Below 700px, lanes stack and the page scrolls to keep browsers legible. Preparation and the manual countdown remain unchanged.
+
+## Race dark theme
+The race surface uses a neutral dark canvas (#101214), charcoal panels (#1b1e22), dark fields (#23272d), and light text (#eceef0). Jev uses a cool neutral accent (#dbe4ee); Cerebras retains amber (#f4c889). Muted text is #afb4bc. This theme is scoped to /race; the original inspector keeps its own palette. The idle announcement is omitted.

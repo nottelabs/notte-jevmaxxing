@@ -128,7 +128,7 @@ export default function WikiRace() {
   }
 
   const failed = Object.values(lanes).some((lane) => lane.status === "error");
-  const announcement = phase === "preparing" ? "Preparing both browsers. They will wait for you at the starting line." : phase === "ready" ? "Wait until both viewers show the starting article, then press Start race. You have 90 seconds." : phase === "countdown" ? `Starting in ${countdown}…` : phase === "racing" ? "Race on. First to reach the target wins." : winner === "tie" ? "A tie at the recorded millisecond." : winner ? `${NAMES[winner]} wins this race.` : phase === "done" && !error ? failed ? "The race ended with errors. See each racer for details." : "Neither racer reached the target this time." : "Same start. Same target. Only Wikipedia links.";
+  const announcement = phase === "preparing" ? "Preparing both browsers. They will wait for you at the starting line." : phase === "ready" ? "Wait until both viewers show the starting article, then press Start race. You have 90 seconds." : phase === "countdown" ? `Starting in ${countdown}…` : phase === "racing" ? "Race on. First to reach the target wins." : winner === "tie" ? "A tie at the recorded millisecond." : winner ? `${NAMES[winner]} wins this race.` : phase === "done" && !error ? failed ? "The race ended with errors. See each racer for details." : "Neither racer reached the target this time." : "";
 
   return <main className="wiki-race">
     <header className="race-header">
@@ -146,7 +146,7 @@ export default function WikiRace() {
 
     {config && !config.configured && <p className="race-notice">Race setup is incomplete. Add the Notte, TypeSafe, and Cerebras API keys on the server to enable live races.</p>}
     {error && <p className="race-error" role="alert">{error}</p>}
-    <div className="race-announcement" role="status"><span>{announcement}{phase === "ready" && <button type="button" className="race-cancel" onClick={() => controller.current?.abort()}>Cancel</button>}</span>{route && <span className="race-route">{route.start} → {route.target}</span>}</div>
+    {(announcement || route) && <div className="race-announcement" role="status"><span>{announcement}{phase === "ready" && <button type="button" className="race-cancel" onClick={() => controller.current?.abort()}>Cancel</button>}</span>{route && <span className="race-route">{route.start} → {route.target}</span>}</div>}
     <div className="race-lanes">
       {RACERS.map((racer) => {
         const lane = lanes[racer];

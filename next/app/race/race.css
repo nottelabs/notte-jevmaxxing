@@ -1,65 +1,66 @@
-.wiki-race { padding-top: 24px; max-width: none; height: 100dvh; min-height: 540px; padding: 12px 16px 8px; gap: 0; }
+body:has(.wiki-race) { background: #101214; color: #eceef0; color-scheme: dark; }
+.wiki-race { --race-text: #eceef0; --race-muted: #afb4bc; --ink: #1b1e22; --paper: #eceef0; --dash: #383d44; background: #101214; color: var(--race-text); max-width: none; height: 100dvh; min-height: 540px; padding: 12px 16px 8px; gap: 0; }
 .wiki-race a { color: inherit; text-underline-offset: 4px; }
 .race-header { display: flex; align-items: center; justify-content: space-between; flex: none; gap: 16px; margin-bottom: 12px; }
 .race-header > a:last-child { font-size: 12px; }
 .race-brand { font-weight: 500; text-decoration: none; letter-spacing: -.04em; font-size: 24px; }
 .race-form { display: grid; align-items: end; flex: none; gap: 12px; grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr) auto; }
 .race-form label { display: grid; font-weight: 500; gap: 4px; font-size: 12px; }
-.race-form input { width: 100%; min-width: 0; border: 0; border-bottom: 1px solid var(--ink); background: rgba(254,254,254,.5); color: var(--ink); font: 18px var(--display); border-radius: 0; caret-color: var(--ink); padding: 9px 12px; font-size: 16px; }
+.race-form input { width: 100%; min-width: 0; border: 0; border-bottom: 1px solid #535b65; background: #23272d; color: var(--race-text); font: 18px var(--display); border-radius: 0; caret-color: var(--race-text); padding: 9px 12px; font-size: 16px; }
 .route-arrow { padding-bottom: 8px; }
 .route-arrow svg { height: 24px; fill: none; stroke: currentColor; stroke-width: 1.5; width: 24px; }
 .wiki-race button { cursor: pointer; font-family: var(--display); }
 .wiki-race button:disabled { cursor: not-allowed; opacity: .55; }
-.race-start { border: 0; background: var(--ink); color: var(--paper); white-space: nowrap; min-height: 38px; padding: 9px 18px; font-size: 16px; }
-.race-start:hover:not(:disabled) { background: #393139; }
+.race-start { border: 1px solid #535b65; background: #30363e; color: var(--paper); white-space: nowrap; min-height: 38px; padding: 9px 18px; font-size: 16px; }
+.race-start:hover:not(:disabled) { background: #3c444f; }
 .race-password { grid-column: 1 / -1; max-width: 320px; }
-.race-announcement { display: flex; justify-content: space-between; align-items: center; gap: 16px; border-top: 1px solid rgba(30,30,30,.3); flex: none; min-height: 36px; margin-top: 10px; font-size: 13px; padding: 6px 0; }
+.race-announcement { display: flex; justify-content: space-between; align-items: center; gap: 16px; border-top: 1px solid var(--dash); flex: none; min-height: 36px; margin-top: 10px; font-size: 13px; padding: 6px 0; }
 .race-route { font-size: 12px; text-align: right; max-width: 35%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.race-notice, .race-error { background: var(--paper); line-height: 1.5; font-size: 14px; flex: none; margin: 8px 0 0; padding: 8px 12px; }
-.race-error { color: #92263e; }
-.race-lanes { display: grid; grid-template-columns: 1fr 1fr; flex: 1; min-height: 0; gap: 12px; }
-.race-lane { min-width: 0; background: var(--ink); color: var(--paper); --accent: #f7a8be; box-shadow: 0 20px 50px -24px rgba(30,30,30,.5); display: flex; flex-direction: column; min-height: 0; position: relative; }
+.race-notice, .race-error { background: #252a30; line-height: 1.5; font-size: 14px; flex: none; margin: 8px 0 0; padding: 8px 12px; }
+.race-error { color: #ffb58a; }
+.race-lanes { margin-top: 8px; display: grid; grid-template-columns: 1fr 1fr; flex: 1; min-height: 0; gap: 12px; }
+.race-lane { min-width: 0; background: var(--ink); color: var(--paper); --accent: #dbe4ee; box-shadow: 0 20px 50px -24px rgba(30,30,30,.5); display: flex; flex-direction: column; min-height: 0; position: relative; }
 .race-lane.cerebras { --accent: #f4c889; }
 .lane-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex: none; padding: 10px 16px 8px; min-height: 50px; }
 .lane-heading h2 { color: var(--accent); font-weight: 500; letter-spacing: -.02em; font-size: 24px; margin: 0; }
-.lane-model { font: 11px var(--mono); color: #bcb6ba; overflow-wrap: anywhere; }
-.lane-status { font-size: 12px; text-transform: capitalize; color: #bcb6ba; }
+.lane-model { font: 11px var(--mono); color: var(--race-muted); overflow-wrap: anywhere; }
+.lane-status { font-size: 12px; text-transform: capitalize; color: var(--race-muted); }
 .race-winner .lane-status { color: var(--ink); background: var(--accent); padding: 7px 12px; }
 .lane-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; flex: none; padding: 0 16px 10px; }
 .lane-stats > div { display: grid; gap: 2px; }
 .lane-stats strong { font: 500 clamp(20px, 2.1vw, 30px) var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; font-size: clamp(20px, 2vw, 28px); }
-.lane-stats small { font-size: 12px; color: #bcb6ba; }
-.lane-stats span { font-size: 11px; color: #bcb6ba; }
-.lane-address { border-top: 1px dashed var(--dash); border-bottom: 1px dashed var(--dash); color: #c9c2c7; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: none; padding: 6px 16px; }
-.lane-viewport { background: #272427; flex: 1; min-height: 0; aspect-ratio: auto; }
+.lane-stats small { font-size: 12px; color: var(--race-muted); }
+.lane-stats span { font-size: 11px; color: var(--race-muted); }
+.lane-address { border-top: 1px dashed var(--dash); border-bottom: 1px dashed var(--dash); color: #c2c7cf; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: none; padding: 6px 16px; }
+.lane-viewport { background: #15181c; flex: 1; min-height: 0; aspect-ratio: auto; }
 .lane-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; padding: 24px; text-align: center; }
-.wiki-letter { font: 100px Georgia, serif; color: #d9cdd4; font-size: 64px; }
-.lane-empty p { color: #bcb6ba; font-size: 13px; line-height: 1.5; max-width: 30ch; margin: 18px 0 0; margin-top: 8px; }
+.wiki-letter { font: 100px Georgia, serif; color: #c2c7cf; font-size: 64px; }
+.lane-empty p { color: var(--race-muted); font-size: 13px; line-height: 1.5; max-width: 30ch; margin: 18px 0 0; margin-top: 8px; }
 .lane-trail { border-top: 1px dashed var(--dash); flex: none; padding: 0; }
-.lane-trail ol { margin: 0; padding: 0; list-style: none; overflow-y: auto; scrollbar-color: #7b6573 #272427; max-height: none; }
+.lane-trail ol { margin: 0; padding: 0; list-style: none; overflow-y: auto; scrollbar-color: #616b79 #15181c; max-height: none; }
 .lane-trail li { display: grid; grid-template-columns: 25px minmax(0, 1fr) auto; gap: 12px; padding: 11px 0; border-top: 1px dashed var(--dash); font-size: 13px; align-items: baseline; }
 .lane-trail a { overflow-wrap: anywhere; text-decoration: none; }
 .lane-trail a:hover { text-decoration: underline; }
 .hop-number { color: var(--accent); font: 11px var(--mono); }
-.lane-trail time { color: #bcb6ba; font: 11px var(--mono); font-variant-numeric: tabular-nums; }
-.lane-message, .trail-empty { font-size: 12px; color: #c9c2c7; line-height: 1.5; margin: 0 0 10px; }
+.lane-trail time { color: var(--race-muted); font: 11px var(--mono); font-variant-numeric: tabular-nums; }
+.lane-message, .trail-empty { font-size: 12px; color: #c2c7cf; line-height: 1.5; margin: 0 0 10px; }
 .lane-failure { margin: 0; color: var(--accent); font-size: 14px; line-height: 1.5; border-bottom: 1px dashed var(--dash); flex: none; padding: 8px 16px; }
 .race-footer { display: flex; justify-content: space-between; align-items: start; flex: none; position: relative; padding: 8px 0 0; gap: 12px; font-size: 12px; }
 .race-footer details { max-width: 75ch; }
 .race-footer summary { cursor: pointer; width: fit-content; }
 .race-footer p { line-height: 1.7; }
-.race-footer button { background: none; border: 0; border-bottom: 1px solid currentColor; white-space: nowrap; color: var(--ink); padding: 0; font-size: 12px; }
-.wiki-race :focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
+.race-footer button { background: none; border: 0; border-bottom: 1px solid currentColor; white-space: nowrap; color: var(--race-text); padding: 0; font-size: 12px; }
+.wiki-race :focus-visible { outline: 2px solid var(--race-text); outline-offset: 4px; }
 .race-lane :focus-visible { outline-color: var(--accent); }
-.wiki-race ::selection { background: var(--ink); color: var(--pink); }
+.wiki-race ::selection { background: #dbe4ee; color: #101214; }
 .race-lane ::selection { background: var(--accent); color: var(--ink); }
 .race-cancel { margin-inline-start: 16px; padding: 4px 0; border: 0; background: none; color: inherit; font: inherit; text-decoration: underline; text-underline-offset: 4px; }
 .race-header h1 { flex: 1; margin: 0; font-size: 20px; font-weight: 500; letter-spacing: -.03em; }
 .lane-heading > div { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 12px; }
 .lane-trail summary { cursor: pointer; padding: 7px 16px; font-size: 12px; }
-.lane-trail summary > span { float: right; color: #bcb6ba; }
+.lane-trail summary > span { float: right; color: var(--race-muted); }
 .trail-content { position: absolute; z-index: 2; bottom: 32px; left: 0; right: 0; max-height: calc(100% - 150px); overflow: auto; padding: 12px 16px; background: var(--ink); border-top: 1px dashed var(--dash); box-shadow: 0 -12px 24px -16px rgba(0,0,0,.5); }
-.race-rules { position: absolute; z-index: 3; bottom: 30px; left: 0; width: min(70ch, 100%); max-height: 60dvh; overflow: auto; padding: 12px 20px; background: var(--paper); box-shadow: 0 -12px 30px -12px rgba(30,30,30,.3); }
+.race-rules { position: absolute; z-index: 3; bottom: 30px; left: 0; width: min(70ch, 100%); max-height: 60dvh; overflow: auto; padding: 12px 20px; background: #252a30; box-shadow: 0 -12px 30px -12px rgba(30,30,30,.3); }
 @media (max-width: 700px) {
   .wiki-race { height: auto; min-height: 100dvh; padding: 12px; }
   .race-header { flex-wrap: wrap; gap: 8px 12px; }
