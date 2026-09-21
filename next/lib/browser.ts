@@ -145,10 +145,10 @@ export class Browser {
     return reply.exceptionDetails ? undefined : reply.result?.value;
   }
 
-  async open(url: string) {
+  async open(url: string, viewport = VIEWPORT) {
     // The viewport is already set by the Notte session; these ride along with the navigation.
     const sent = [
-      this.call("Emulation.setDeviceMetricsOverride", { width: 1120, height: 780, deviceScaleFactor: 1, mobile: false }),
+      this.call("Emulation.setDeviceMetricsOverride", { width: viewport.viewport_width, height: viewport.viewport_height, deviceScaleFactor: 1, mobile: false }),
       this.call("Emulation.setFocusEmulationEnabled", { enabled: true }),
       this.call("Page.navigate", { url }),
     ];
