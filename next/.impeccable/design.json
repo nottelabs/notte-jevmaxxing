@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-21T00:00:00Z",
+  "title": "Design System: Notte Jevmaxxing",
+  "extensions": {
+    "shadows": [
+      { "name": "inspector", "value": "0 30px 80px -20px rgba(30, 30, 30, 0.6)", "purpose": "Inherited browser instrument elevation." },
+      { "name": "race-lane", "value": "0 20px 50px -24px rgba(30,30,30,.5)", "purpose": "Paired race browser panels." },
+      { "name": "inspector-mobile", "value": "0 16px 40px -16px rgba(30, 30, 30, 0.6)", "purpose": "Inspector elevation at 640px and below." }
+    ],
+    "breakpoints": [
+      { "name": "compact", "value": "900px" },
+      { "name": "mobile", "value": "640px" }
+    ]
+  }
+}
