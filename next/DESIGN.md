@@ -51,3 +51,6 @@ The footer exposes race rules and completed-run data download. Keep provider/mod
 - Do retain readable measurements, labeled inputs, keyboard focus, and mobile stacking.
 - Don't use accent color as the sole indication of winner or status.
 - Don't substitute fabricated race results for setup, loading, or failure states.
+
+## Compact race view
+The race uses the desktop viewport height, with a compact brand/title row and route controls above two flexible browser lanes. Provider names, model IDs, and metrics stay visible; the viewers take the remaining height. Article trails and rules open over the view instead of extending the document. Below 700px, lanes stack and the page scrolls to keep browsers legible. Preparation and the manual countdown remain unchanged.

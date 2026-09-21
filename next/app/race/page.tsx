@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { RACERS, MAX_HOPS, type Lane, type RaceEvent, type Racer } from "@/lib/race-types";
 import "./race.css";
 
-const PRESETS = [["Coffee", "Volcano"], ["Octopus", "Jazz"], ["Switzerland", "Nintendo"]];
 const NAMES = { jev: "Jev", cerebras: "Cerebras" };
 const seconds = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
 type Config = { password_required: boolean; configured: boolean; models: Record<Racer, string> };
@@ -18,8 +17,8 @@ function viewerUrl(raw: string) {
 }
 
 export default function WikiRace() {
-  const [start, setStart] = useState(PRESETS[0][0]);
-  const [target, setTarget] = useState(PRESETS[0][1]);
+  const [start, setStart] = useState("Coffee");
+  const [target, setTarget] = useState("Volcano");
   const [config, setConfig] = useState<Config | null>(null);
   const [password, setPassword] = useState("");
   const [lanes, setLanes] = useState<Partial<Record<Racer, Lane>>>({});
@@ -134,12 +133,9 @@ export default function WikiRace() {
   return <main className="wiki-race">
     <header className="race-header">
       <a className="race-brand" href="https://notte.cc">notte</a>
+      <h1>The Wikipedia race.</h1>
       <a href="/">Open Jevmaxxing</a>
     </header>
-    <div className="race-title">
-      <h1>The Wikipedia race.</h1>
-      <p>Jev vs Cerebras. Two browsers. One finish line.</p>
-    </div>
     <form className="race-form" onSubmit={race}>
       <label>Starting article<input value={start} onChange={(e) => setStart(e.target.value)} disabled={busy} required maxLength={500} autoComplete="off" /></label>
       <span className="route-arrow" aria-hidden="true"><svg viewBox="0 0 32 24"><path d="M2 12h27M20 3l9 9-9 9" /></svg></span>
@@ -147,7 +143,7 @@ export default function WikiRace() {
       {phase === "ready" ? <button type="button" className="race-start" disabled={starting || !RACERS.every((racer) => viewerLoaded[racer])} onClick={startPreparedRace}>{starting ? "Starting…" : "Start race"}</button> : busy ? <button type="button" className="race-start" disabled={phase === "finishing"} onClick={() => controller.current?.abort()}>{phase === "finishing" ? "Finishing…" : "Stop race"}</button> : <button type="submit" className="race-start" disabled={!config?.configured}>Prepare browsers</button>}
       {config?.password_required && <label className="race-password">Race password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required disabled={busy} /></label>}
     </form>
-    <div className="race-presets"><span>Try a route</span>{PRESETS.map(([a, b]) => <button key={a} type="button" disabled={busy} onClick={() => { setStart(a); setTarget(b); }}>{a} <span aria-hidden="true">/</span> {b}</button>)}</div>
+
     {config && !config.configured && <p className="race-notice">Race setup is incomplete. Add the Notte, TypeSafe, and Cerebras API keys on the server to enable live races.</p>}
     {error && <p className="race-error" role="alert">{error}</p>}
     <div className="race-announcement" role="status"><span>{announcement}{phase === "ready" && <button type="button" className="race-cancel" onClick={() => controller.current?.abort()}>Cancel</button>}</span>{route && <span className="race-route">{route.start} → {route.target}</span>}</div>
@@ -163,13 +159,13 @@ export default function WikiRace() {
           <div className="lane-address">{current?.title ?? (phase === "preparing" ? "Preparing Wikipedia…" : "Waiting at the starting line")}</div>
           {lane?.status === "error" && lane.message && <p className="lane-failure" role="alert">{lane.message}</p>}
           <div className="viewport lane-viewport">{lane?.viewer_url ? <iframe title={`${NAMES[racer]} live Wikipedia browser`} src={viewerUrl(lane.viewer_url)} onLoad={() => setViewerLoaded((old) => ({ ...old, [racer]: true }))} /> : <div className="lane-empty"><span className="wiki-letter" aria-hidden="true">W</span><p>{phase === "preparing" ? "Opening a Notte browser…" : "A whole encyclopedia between here and there."}</p></div>}</div>
-          <div className="lane-trail"><div className="trail-heading"><h3>Article trail</h3><span>{lane?.model_ms ? `${seconds(lane.model_ms)} deciding` : "No clicks yet"}</span></div>{lane?.message && lane.status !== "error" && <p className="lane-message">{lane.message}</p>}
+          <details className="lane-trail"><summary>Article trail <span>{Math.max(0, (lane?.path.length ?? 1) - 1)} links</span></summary><div className="trail-content">{lane?.message && lane.status !== "error" && <p className="lane-message">{lane.message}</p>}
             <ol>{lane?.path.map((step, i) => <li key={`${i}-${step.url}`}><span className="hop-number">{String(i).padStart(2, "0")}</span><a href={step.url} target="_blank" rel="noreferrer">{step.title}</a><time>{i ? seconds(step.elapsed_ms) : "Start"}</time></li>)}</ol>
             {!lane?.path.length && <p className="trail-empty">Every article visited will appear here.</p>}
-          </div>
+          </div></details>
         </section>;
       })}
     </div>
-    <footer className="race-footer"><details><summary>How the race works</summary><p>Prepare browsers loads the starting article in both sessions. Once both viewers show it, press Start race for a three-second countdown. The shared server timer begins after the countdown. Each model sees the same kind of article text, visited history, and up to 250 unique article links in document order. No search, URL typing, external links, or back button. The executor scrolls to and clicks the chosen link.</p><p>First verified arrival wins. Both racers can finish, with a limit of {MAX_HOPS} clicks or 2 minutes each. Setup is excluded; model calls, browser actions, and page loading are included. Average decision time includes successful model responses only. This is one live race, not a general model benchmark.</p></details>{phase === "done" && Object.keys(lanes).length > 0 && <button type="button" onClick={download}>Download race data</button>}</footer>
+    <footer className="race-footer"><details><summary>How the race works</summary><div className="race-rules"><p>Prepare browsers loads the starting article in both sessions. Once both viewers show it, press Start race for a three-second countdown. The shared server timer begins after the countdown. Each model sees the same kind of article text, visited history, and up to 250 unique article links in document order. No search, URL typing, external links, or back button. The executor scrolls to and clicks the chosen link.</p><p>First verified arrival wins. Both racers can finish, with a limit of {MAX_HOPS} clicks or 2 minutes each. Setup is excluded; model calls, browser actions, and page loading are included. Average decision time includes successful model responses only. This is one live race, not a general model benchmark.</p></div></details>{phase === "done" && Object.keys(lanes).length > 0 && <button type="button" onClick={download}>Download race data</button>}</footer>
   </main>;
 }
