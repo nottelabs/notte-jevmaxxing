@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { after } from "next/server";
 import { runRace } from "@/lib/race";
+import { raceViewport } from "@/lib/race-types";
 import { raceModels } from "@/lib/race-model";
 import { articleUrl } from "@/lib/wiki";
 
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
   const stream = new ReadableStream({
     start(controller) {
       const emit = (event: unknown) => { if (!signal.aborted) controller.enqueue(encoder.encode(JSON.stringify(event) + "\n")); };
-      work = runRace(start, target, signal, emit, undefined, body.manual_start === true).catch((error) => {
+      work = runRace(start, target, signal, emit, undefined, body.manual_start === true, raceViewport(body.viewport_height)).catch((error) => {
         emit({ type: "error", error: error instanceof Error ? error.message : "Race failed. Try again." });
       }).finally(() => {
         clearTimeout(timeout);

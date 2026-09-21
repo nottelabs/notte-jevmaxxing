@@ -226,3 +226,18 @@ test("start capabilities hide credentials and reject tampering and expired ticke
     else process.env.NOTTE_API_KEY = previous;
   }
 });
+
+test("both race browsers receive the same fitted viewport with bounded dimensions", async () => {
+  const { raceViewport } = await import("../lib/race-types");
+  assert.deepEqual(raceViewport(undefined), { viewport_width: 1120, viewport_height: 960 });
+  assert.equal(raceViewport(NaN).viewport_height, 960);
+  assert.equal(raceViewport(100).viewport_height, 640);
+  assert.equal(raceViewport(9000).viewport_height, 1600);
+  const h = harness();
+  const open = h.deps.openDriver;
+  const sizes: unknown[] = [];
+  h.deps.openDriver = async (signal, viewport) => { sizes.push(viewport); return open(signal, viewport); };
+  const viewport = raceViewport(951.4);
+  await runRace(articleUrl("Start"), articleUrl("Target"), new AbortController().signal, h.emit, h.deps, false, viewport);
+  assert.deepEqual(sizes, [viewport, viewport]);
+});

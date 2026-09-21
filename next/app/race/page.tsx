@@ -31,6 +31,7 @@ export default function WikiRace() {
   const [error, setError] = useState("");
   const [clock, setClock] = useState(0);
   const [route, setRoute] = useState<{ start: string; target: string } | null>(null);
+  const laneContainer = useRef<HTMLDivElement>(null);
   const controller = useRef<AbortController | null>(null);
   const began = useRef(0);
   const busy = !["idle", "done"].includes(phase);
@@ -94,7 +95,12 @@ export default function WikiRace() {
       if (event.type === "finish") { complete = true; setWinner(event.winner); setPhase("finishing"); }
     };
     try {
-      const response = await fetch("/api/race", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ start, target, password, manual_start: true }), signal: abort.signal });
+      // Measure after the preparation status has taken its space above the viewers.
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      abort.signal.throwIfAborted();
+      const frame = laneContainer.current?.querySelector(".lane-viewport")?.getBoundingClientRect();
+      const viewport_height = frame?.width && frame.height ? Math.round(1120 * frame.height / frame.width) : 960;
+      const response = await fetch("/api/race", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ start, target, password, manual_start: true, viewport_height }), signal: abort.signal });
       if (!response.ok) throw Error((await response.json()).error || "Could not start the race.");
       if (!response.body) throw Error("The race stream is unavailable. Try again.");
       const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
@@ -147,7 +153,7 @@ export default function WikiRace() {
     {config && !config.configured && <p className="race-notice">Race setup is incomplete. Add the Notte, TypeSafe, and Cerebras API keys on the server to enable live races.</p>}
     {error && <p className="race-error" role="alert">{error}</p>}
     {(announcement || route) && <div className="race-announcement" role="status"><span>{announcement}{phase === "ready" && <button type="button" className="race-cancel" onClick={() => controller.current?.abort()}>Cancel</button>}</span>{route && <span className="race-route">{route.start} → {route.target}</span>}</div>}
-    <div className="race-lanes">
+    <div className="race-lanes" ref={laneContainer}>
       {RACERS.map((racer) => {
         const lane = lanes[racer];
         const live = lane?.status === "racing";

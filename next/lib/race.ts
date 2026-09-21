@@ -1,10 +1,10 @@
 import { setTimeout as delay } from "node:timers/promises";
 import { prepareStart } from "./race-start";
 import { NotteClient } from "notte-sdk";
-import { Browser, VIEWPORT } from "./browser";
+import { Browser } from "./browser";
 import { chooseLink, raceModels } from "./race-model";
 import { articleUrl, clickWiki, readWiki } from "./wiki";
-import { MAX_HOPS, RACE_MS, RACERS, winnerOf, type Lane, type RaceEvent, type WikiPage } from "./race-types";
+import { MAX_HOPS, RACE_MS, RACERS, winnerOf, raceViewport, type Lane, type RaceEvent, type WikiPage } from "./race-types";
 
 type Driver = {
   viewer_url?: string;
@@ -14,10 +14,10 @@ type Driver = {
   close: () => Promise<void>;
 };
 
-async function openDriver(signal: AbortSignal): Promise<Driver> {
+async function openDriver(signal: AbortSignal, viewport = raceViewport(undefined)): Promise<Driver> {
   signal.throwIfAborted();
   const client = new NotteClient({ apiKey: process.env.NOTTE_API_KEY });
-  const session = client.Session({ proxies: false, idle_timeout_minutes: 3, max_duration_minutes: 5, ...VIEWPORT } as never);
+  const session = client.Session({ proxies: false, idle_timeout_minutes: 3, max_duration_minutes: 5, ...viewport } as never);
   let browser: Browser | undefined;
   let started = false;
   const disconnect = () => browser?.close();
@@ -38,7 +38,7 @@ async function openDriver(signal: AbortSignal): Promise<Driver> {
     return {
       viewer_url: status.viewer_url ?? undefined,
       prepareStart: () => prepareStart(browser!, cdp),
-      open: async (url, signal) => { signal.throwIfAborted(); await browser!.open(url); return readWiki(browser!, signal); },
+      open: async (url, signal) => { signal.throwIfAborted(); await browser!.open(url, viewport); return readWiki(browser!, signal); },
       follow: async (link, previous, signal) => { await clickWiki(browser!, link, signal); return readWiki(browser!, signal, previous); },
       close,
     };
@@ -48,10 +48,10 @@ async function openDriver(signal: AbortSignal): Promise<Driver> {
   }
 }
 
-export type RaceDeps = { openDriver: (signal: AbortSignal) => Promise<Driver>; choose: typeof chooseLink; now: () => number };
+export type RaceDeps = { openDriver: (signal: AbortSignal, viewport?: ReturnType<typeof raceViewport>) => Promise<Driver>; choose: typeof chooseLink; now: () => number };
 const defaults: RaceDeps = { openDriver, choose: chooseLink, now: () => performance.now() };
 
-export async function runRace(startUrl: string, targetUrl: string, signal: AbortSignal, emit: (event: RaceEvent) => void, deps: RaceDeps = defaults, manualStart = false) {
+export async function runRace(startUrl: string, targetUrl: string, signal: AbortSignal, emit: (event: RaceEvent) => void, deps: RaceDeps = defaults, manualStart = false, viewport = raceViewport(undefined)) {
   const lanes = RACERS.map((racer): Lane => ({ racer, model: raceModels()[racer], status: "preparing", path: [], elapsed_ms: 0, model_ms: 0, decisions: 0 }));
   const drivers: Driver[] = [];
   const controller = new AbortController();
@@ -64,7 +64,7 @@ export async function runRace(startUrl: string, targetUrl: string, signal: Abort
     // Each lane resolves redirects and verifies both articles before the shared start.
     // allSettled ensures a slower setup cannot leak a browser after another lane fails.
     const setups = await Promise.allSettled(lanes.map(async (lane) => {
-      const driver = await deps.openDriver(active);
+      const driver = await deps.openDriver(active, viewport);
       drivers.push(driver);
       lane.viewer_url = driver.viewer_url;
       publish(lane);

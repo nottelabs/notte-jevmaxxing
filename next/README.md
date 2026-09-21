@@ -35,7 +35,7 @@ Open `/race` for Jev vs a Cerebras-hosted model in two Notte browsers. The origi
 Set `NOTTE_API_KEY`, `TYPESAFE_API_KEY`, and `CEREBRAS_API_KEY` in `.env.local`.
 `TYPESAFE_MODEL` defaults to `jev-latest`; `CEREBRAS_MODEL` defaults to `gpt-oss-120b` with low reasoning effort.
 
-For recording, click **Prepare browsers** first. Both sessions wait on the starting article without making model calls. Once both viewers show Wikipedia, click **Start race** for a three-second countdown. Preparation and countdown are excluded from race timing. The prepared sessions expire after 90 seconds if you do not start; Cancel releases them sooner. The start capability is encrypted, expires with the preparation, and works across Vercel instances without an in-memory coordination map.
+For recording, click **Prepare browsers** first. Preparation fits both browser viewports to the visible panel proportions (1120px wide, with height bounded to 640–1600px). Prepare again after resizing the window to refit. Both sessions wait on the starting article without making model calls. Once both viewers show Wikipedia, click **Start race** for a three-second countdown. Preparation and countdown are excluded from race timing. The prepared sessions expire after 90 seconds if you do not start; Cancel releases them sooner. The start capability is encrypted, expires with the preparation, and works across Vercel instances without an in-memory coordination map.
 
 The UI labels the model as well as the provider. Other Cerebras models must support strict JSON-schema outputs.
 No text-helper key is needed for a race. The existing `RUN_PASSWORD` protects both run endpoints.

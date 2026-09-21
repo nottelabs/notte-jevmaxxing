@@ -1,6 +1,10 @@
 export type Racer = "jev" | "cerebras";
 export const RACERS: Racer[] = ["jev", "cerebras"];
 export const MAX_HOPS = 20;
+export function raceViewport(height: unknown) {
+  const requested = typeof height === "number" && Number.isFinite(height) ? height : 960;
+  return { viewport_width: 1120, viewport_height: Math.max(640, Math.min(1600, Math.round(requested))) };
+}
 export const RACE_MS = 120_000;
 export const MAX_LINKS = 250;
 export type Article = { title: string; url: string };
