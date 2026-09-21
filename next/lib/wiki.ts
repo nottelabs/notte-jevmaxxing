@@ -38,7 +38,9 @@ export const READ_WIKI = `(() => {
   for (const a of root.querySelectorAll('a[href]')) {
     const u = new URL(a.href, location.href);
     if (u.origin !== 'https://en.wikipedia.org' || !u.pathname.startsWith('/wiki/') || u.search ||
-        a.classList.contains('new') || a.closest('.navbox, .reflist, .mw-editsection, .metadata') || !a.getClientRects().length) continue;
+        a.classList.contains('new') || a.closest('.sidebar, .navbox, .reflist, .mw-editsection, .metadata') ||
+        !a.checkVisibility({checkOpacity: true, checkVisibilityCSS: true}) ||
+        ![...a.getClientRects()].some(r => r.width > 0 && r.height > 0)) continue;
     let title;
     try { title = decodeURIComponent(u.pathname.slice(6)).replaceAll('_', ' '); } catch { continue; }
     u.hash = '';
@@ -70,7 +72,8 @@ export async function clickWiki(browser: Browser, link: WikiLink, signal: AbortS
   signal.throwIfAborted();
   const point = await browser.evaluate(`(() => {
     const state = window.__wikiRace, a = state?.nodes.get(${JSON.stringify(link.id)});
-    if (state?.url !== location.href || !a?.isConnected) return null;
+    if (state?.url !== location.href || !a?.isConnected ||
+        !a.checkVisibility({checkOpacity: true, checkVisibilityCSS: true})) return null;
     const url = new URL(a.href); url.hash = '';
     if (url.href !== ${JSON.stringify(link.url)}) return null;
     a.scrollIntoView({block: 'center', behavior: 'instant'});

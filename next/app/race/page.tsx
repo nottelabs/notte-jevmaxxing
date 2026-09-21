@@ -97,7 +97,8 @@ export default function WikiRace() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  const announcement = phase === "preparing" ? "Opening two browsers. The clock starts when both are ready." : phase === "racing" ? "Race on. First to reach the target wins." : winner === "tie" ? "A tie at the recorded millisecond." : winner ? `${NAMES[winner]} wins this race.` : phase === "done" && !error ? "Neither racer reached the target this time." : "Same start. Same target. Only Wikipedia links.";
+  const failed = Object.values(lanes).some((lane) => lane.status === "error");
+  const announcement = phase === "preparing" ? "Opening two browsers. The clock starts when both are ready." : phase === "racing" ? "Race on. First to reach the target wins." : winner === "tie" ? "A tie at the recorded millisecond." : winner ? `${NAMES[winner]} wins this race.` : phase === "done" && !error ? failed ? "The race ended with errors. See each racer for details." : "Neither racer reached the target this time." : "Same start. Same target. Only Wikipedia links.";
 
   return <main className="wiki-race">
     <header className="race-header">
@@ -129,8 +130,9 @@ export default function WikiRace() {
           <div className="lane-heading"><div><h2>{NAMES[racer]}</h2><span className="lane-model">{lane?.model ?? config?.models[racer] ?? "Loading model…"}</span></div><span className="lane-status">{winner === racer ? "Winner" : lane?.status ?? "Ready"}</span></div>
           <div className="lane-stats"><div><strong>{seconds(time)}</strong><span>race time</span></div><div><strong>{Math.max(0, (lane?.path.length ?? 1) - 1)}<small> / {MAX_HOPS}</small></strong><span>links followed</span></div><div><strong>{lane?.decisions ? `${Math.round(lane.model_ms / lane.decisions)} ms` : "n/a"}</strong><span>avg. decision</span></div></div>
           <div className="lane-address">{current?.title ?? (phase === "preparing" ? "Preparing Wikipedia…" : "Waiting at the starting line")}</div>
+          {lane?.status === "error" && lane.message && <p className="lane-failure" role="alert">{lane.message}</p>}
           <div className="viewport lane-viewport">{lane?.viewer_url ? <iframe title={`${NAMES[racer]} live Wikipedia browser`} src={viewerUrl(lane.viewer_url)} /> : <div className="lane-empty"><span className="wiki-letter" aria-hidden="true">W</span><p>{phase === "preparing" ? "Opening a Notte browser…" : "A whole encyclopedia between here and there."}</p></div>}</div>
-          <div className="lane-trail"><div className="trail-heading"><h3>Article trail</h3><span>{lane?.model_ms ? `${seconds(lane.model_ms)} deciding` : "No clicks yet"}</span></div>{lane?.message && <p className="lane-message">{lane.message}</p>}
+          <div className="lane-trail"><div className="trail-heading"><h3>Article trail</h3><span>{lane?.model_ms ? `${seconds(lane.model_ms)} deciding` : "No clicks yet"}</span></div>{lane?.message && lane.status !== "error" && <p className="lane-message">{lane.message}</p>}
             <ol>{lane?.path.map((step, i) => <li key={`${i}-${step.url}`}><span className="hop-number">{String(i).padStart(2, "0")}</span><a href={step.url} target="_blank" rel="noreferrer">{step.title}</a><time>{i ? seconds(step.elapsed_ms) : "Start"}</time></li>)}</ol>
             {!lane?.path.length && <p className="trail-empty">Every article visited will appear here.</p>}
           </div>

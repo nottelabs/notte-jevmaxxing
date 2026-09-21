@@ -54,5 +54,7 @@ This is a live demonstration, not a statistically controlled benchmark; website 
 
 ```bash
 npm run test:race  # Offline rule, lifecycle, and provider-adapter tests
+npx playwright install chromium  # One-time browser test setup
+npm run test:wiki-browser  # Local DOM tests for hidden/sidebar links and click guards
 npm run build
 ```
